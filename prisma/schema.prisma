@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id       String   @id @default(uuid())
+  username String   @unique
+  email    String   @unique
+  password String
+  avatar   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  playlists    Playlist[]
+  preferences  UserPreference?
+  history      ListeningHistory[]
+  likedTracks  LikedTrack[]
+}
+
+model UserPreference {
+  id      String @id @default(uuid())
+  userId  String @unique
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  genres  String @default("[]")  // JSON array: ["rock", "pop"]
+  eras    String @default("[]")  // JSON array: ["80s", "90s"]
+  artists String @default("[]")  // JSON array: ["artist1", "artist2"]
+  neteaseCookie String @default("")  // 用户自填的网易云音乐 Cookie
+}
+
+model Playlist {
+  id        String   @id @default(uuid())
+  name      String
+  coverUrl  String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tracks PlaylistTrack[]
+}
+
+model PlaylistTrack {
+  id         String @id @default(uuid())
+  playlistId String
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  trackId    String
+  trackTitle String
+  trackArtist String
+  trackCover  String
+  trackDuration Int
+  addedAt    DateTime @default(now())
+  sortOrder  Int     @default(0)
+}
+
+model ListeningHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId   String
+  trackTitle String
+  trackArtist String
+  trackCover  String
+  listenedAt DateTime @default(now())
+}
+
+model LikedTrack {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId   String
+  trackTitle String
+  trackArtist String
+  trackCover  String
+  trackDuration Int
+  likedAt   DateTime @default(now())
+
+  @@unique([userId, trackId])
+}
+
+model ApiKey {
+  id      String @id @default(uuid())
+  userId  String?
+  platform String @default("youtube")
+  apiKey  String
+  createdAt DateTime @default(now())
+}

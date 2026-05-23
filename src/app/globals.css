@@ -1,26 +1,523 @@
 @import "tailwindcss";
 
+/* ====== AURA MUSIC — CYBERPUNK AI CONSOLE THEME ====== */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --neon-cyan: #00f5ff;
+  --neon-blue: #22d3ee;
+  --neon-magenta: #d946ef;
+  --neon-purple: #a855f7;
+  --neon-green: #22c55e;
+  --neon-red: #ef4444;
+  --neon-yellow: #eab308;
+
+  --bg-deep: #02070a;
+  --bg-panel: rgba(0, 20, 26, 0.45);
+  --bg-hover: rgba(0, 245, 255, 0.04);
+  --border-subtle: rgba(0, 245, 255, 0.08);
+  --border-default: rgba(0, 245, 255, 0.12);
+  --border-active: rgba(0, 245, 255, 0.25);
+
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-dim: #334155;
+
+  --glow-cyan: 0 0 3px rgba(0, 245, 255, 0.5), 0 0 8px rgba(0, 245, 255, 0.25);
+  --glow-cyan-strong: 0 0 5px rgba(0, 245, 255, 0.7), 0 0 15px rgba(0, 245, 255, 0.3), 0 0 30px rgba(0, 245, 255, 0.1);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* --- GLOBAL RESET --- */
+
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body {
+  height: 100%;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-deep);
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--text-primary);
+}
+
+/* --- KEYFRAMES --- */
+
+@keyframes scanline-sweep {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+@keyframes danmaku-scroll {
+  from { transform: translate3d(110%, 0, 0); }
+  to { transform: translate3d(-110%, 0, 0); }
+}
+
+@keyframes neon-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+@keyframes terminal-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes typing-dot {
+  0%, 80%, 100% { transform: scaleY(0); opacity: 0; }
+  40% { transform: scaleY(1); opacity: 1; }
+}
+
+/* --- CRT EFFECTS --- */
+
+.cyber-scanline {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  overflow: hidden;
+}
+
+.cyber-scanline::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 1px,
+    rgba(0, 0, 0, 0.06) 1px,
+    rgba(0, 0, 0, 0.06) 3px
+  );
+}
+
+.cyber-scanline::after {
+  content: '';
+  position: absolute;
+  top: -10%;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(0, 245, 255, 0.03), transparent);
+  animation: scanline-sweep 10s linear infinite;
+}
+
+.cyber-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9997;
+  background: radial-gradient(ellipse 65% 55% at center, transparent 55%, rgba(0, 0, 0, 0.5) 100%);
+}
+
+/* --- NEON TEXT --- */
+
+.neon-text-cyan {
+  color: var(--neon-cyan);
+  text-shadow: var(--glow-cyan);
+}
+
+.neon-text-green {
+  color: var(--neon-green);
+  text-shadow: 0 0 3px rgba(34, 197, 94, 0.5);
+}
+
+/* --- SCROLLBAR --- */
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0, 245, 255, 0.1); }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 245, 255, 0.25); }
+
+/* --- UTILITY ANIMATIONS --- */
+
+.animate-danmaku { animation: danmaku-scroll linear forwards; }
+.animate-neon-pulse { animation: neon-pulse 2s ease-in-out infinite; }
+.animate-terminal-blink { animation: terminal-blink 1s step-end infinite; }
+.animate-typing-dot { animation: typing-dot 1.4s ease-in-out infinite; }
+
+/* --- GRID OVERLAY --- */
+
+.aura-grid {
+  background-image:
+    linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* --- NEURAL NET NODES --- */
+
+.neural-node {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--neon-cyan);
+  box-shadow: 0 0 4px var(--neon-cyan);
+}
+
+/* --- PROGRESS BAR (audio player) --- */
+
+.aura-progress {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 2px;
+  background: rgba(0, 245, 255, 0.1);
+  outline: none;
+  cursor: pointer;
+}
+
+.aura-progress::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 0;
+  background: var(--neon-cyan);
+  box-shadow: var(--glow-cyan);
+  cursor: pointer;
+}
+
+/* --- RANGE SLIDER (volume, etc) --- */
+
+.aura-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 2px;
+  background: rgba(0, 245, 255, 0.1);
+  outline: none;
+  cursor: pointer;
+}
+
+.aura-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 0;
+  background: var(--neon-cyan);
+  cursor: pointer;
+}
+
+/* ====== HUD PANEL SYSTEM ====== */
+
+.aura-shell {
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(rgba(0, 245, 255, 0.024) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 245, 255, 0.018) 1px, transparent 1px),
+    radial-gradient(circle at 8% 0%, rgba(0, 245, 255, 0.12), transparent 24%),
+    radial-gradient(circle at 70% 8%, rgba(217, 70, 239, 0.055), transparent 30%),
+    var(--bg-deep);
+  background-size: 38px 38px, 38px 38px, auto, auto, auto;
+}
+
+.aura-shell::before,
+.aura-shell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.aura-shell::before {
+  border: 1px solid rgba(0, 245, 255, 0.16);
+  box-shadow:
+    inset 0 0 42px rgba(0, 245, 255, 0.045),
+    0 0 28px rgba(0, 245, 255, 0.06);
+}
+
+.aura-shell::after {
+  background:
+    linear-gradient(90deg, rgba(0, 245, 255, 0.1), transparent 10%, transparent 90%, rgba(0, 245, 255, 0.1)),
+    linear-gradient(180deg, rgba(0, 245, 255, 0.08), transparent 12%, transparent 88%, rgba(0, 245, 255, 0.08));
+  opacity: 0.25;
+}
+
+/* --- HUD FRAME (panel with corner brackets) --- */
+
+.hud-frame {
+  position: relative;
+  border: 1px solid rgba(0, 245, 255, 0.18);
+  border-radius: 4px;
+  background:
+    linear-gradient(180deg, rgba(0, 245, 255, 0.04), rgba(0, 245, 255, 0.015) 32%, rgba(0, 0, 0, 0.1)),
+    rgba(0, 9, 14, 0.72);
+  box-shadow:
+    inset 0 0 28px rgba(0, 245, 255, 0.045),
+    0 0 18px rgba(0, 245, 255, 0.035);
+}
+
+.hud-frame::before,
+.hud-frame::after {
+  content: '';
+  position: absolute;
+  width: 19px;
+  height: 19px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.hud-frame::before {
+  top: 5px;
+  left: 5px;
+  border-top: 1px solid var(--neon-cyan);
+  border-left: 1px solid var(--neon-cyan);
+  opacity: 0.78;
+}
+
+.hud-frame::after {
+  right: 5px;
+  bottom: 5px;
+  border-right: 1px solid var(--neon-cyan);
+  border-bottom: 1px solid var(--neon-cyan);
+  opacity: 0.42;
+}
+
+/* --- TITLE BAR (inside hud-frame) --- */
+
+.hud-titlebar {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(0, 245, 255, 0.09);
+  padding: 0.625rem 1rem;
+  background: linear-gradient(90deg, rgba(0, 245, 255, 0.045), transparent 46%, rgba(0, 245, 255, 0.025));
+}
+
+/* --- BRAND PLATE (header logo) --- */
+
+.aura-brand-plate {
+  position: relative;
+  padding-right: 28px;
+}
+
+.aura-brand-plate::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  right: 0;
+  width: 64px;
+  height: 1px;
+  background: rgba(0, 245, 255, 0.35);
+  transform: skewX(-38deg);
+  transform-origin: right center;
+}
+
+/* --- WAVE MARK (header equalizer bars) --- */
+
+.aura-wave-mark {
+  display: flex;
+  width: 52px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--neon-cyan);
+}
+
+.aura-wave-mark span {
+  width: 2px;
+  min-height: 7px;
+  border-radius: 999px;
+  background: var(--neon-cyan);
+  box-shadow: 0 0 10px var(--neon-cyan);
+}
+
+/* --- STATUS RIBBON (header status bar) --- */
+
+.hud-status-ribbon {
+  position: relative;
+  border-top: 1px solid rgba(0, 245, 255, 0.12);
+  border-bottom: 1px solid rgba(0, 245, 255, 0.08);
+  background: rgba(0, 14, 20, 0.64);
+  clip-path: polygon(18px 0, 100% 0, calc(100% - 24px) 100%, 0 100%);
+}
+
+.hud-status-ribbon::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(0, 245, 255, 0.08), transparent);
+  opacity: 0.75;
+}
+
+.status-chip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  white-space: nowrap;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--text-secondary);
+  z-index: 1;
+}
+
+.status-chip strong {
+  color: var(--neon-cyan);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+/* --- TIME BLOCK (header clock) --- */
+
+.aura-time-block {
+  position: relative;
+  padding: 0.65rem 0.9rem 0.55rem;
+  border-left: 1px solid rgba(0, 245, 255, 0.14);
+  border-right: 1px solid rgba(0, 245, 255, 0.14);
+  background: rgba(0, 245, 255, 0.035);
+  clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+}
+
+/* --- EQ STRIP (animated equalizer) --- */
+
+.aura-eq-strip {
+  display: flex;
+  height: 24px;
+  align-items: end;
+  gap: 4px;
+  opacity: 0.7;
+  overflow: hidden;
+}
+
+.aura-eq-strip span {
+  width: 4px;
+  min-height: 2px;
+  background: linear-gradient(180deg, rgba(0, 245, 255, 0.8), rgba(78, 161, 198, 0.35));
+  box-shadow: 0 0 8px rgba(0, 245, 255, 0.12);
+}
+
+/* --- CONTROL BUTTONS --- */
+
+.aura-icon-button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: var(--neon-cyan);
+  font-size: 23px;
+  opacity: 0.78;
+  transition: transform 160ms ease, color 160ms ease, opacity 160ms ease;
+}
+
+.aura-icon-button:hover,
+.aura-icon-button.is-active {
+  color: white;
+  opacity: 1;
+  transform: translateY(-1px);
+  filter: drop-shadow(0 0 8px rgba(0, 245, 255, 0.6));
+}
+
+.aura-play-button {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border: 1px solid var(--neon-cyan);
+  border-radius: 50%;
+  color: var(--neon-cyan);
+  font-size: 31px;
+  box-shadow:
+    inset 0 0 18px rgba(0, 245, 255, 0.1),
+    0 0 20px rgba(0, 245, 255, 0.18);
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.aura-play-button:hover {
+  transform: scale(1.04);
+  background: rgba(0, 245, 255, 0.08);
+}
+
+.aura-mini-button {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  color: var(--neon-cyan);
+  font-size: 18px;
+  opacity: 0.8;
+  transition: transform 160ms ease, color 160ms ease, opacity 160ms ease;
+}
+
+.aura-mini-button:hover {
+  color: white;
+  opacity: 1;
+  transform: translateY(-1px);
+  filter: drop-shadow(0 0 8px rgba(0, 245, 255, 0.6));
+}
+
+.aura-mini-play {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--neon-cyan);
+  border-radius: 50%;
+  color: var(--neon-cyan);
+  font-size: 19px;
+  box-shadow: inset 0 0 14px rgba(0, 245, 255, 0.1), 0 0 16px rgba(0, 245, 255, 0.14);
+}
+
+/* --- SIDE RAILS (decorative) --- */
+
+.writing-mode-vertical {
+  writing-mode: vertical-rl;
+}
+
+.aura-side-rail {
+  position: absolute;
+  top: 78px;
+  bottom: 12px;
+  z-index: 3;
+  width: 18px;
+  border-top: 1px solid rgba(0, 245, 255, 0.24);
+  border-bottom: 1px solid rgba(0, 245, 255, 0.24);
+  pointer-events: none;
+}
+
+.aura-side-rail::after {
+  content: 'AURA MUSIC SIGNAL';
+  position: absolute;
+  bottom: 10px;
+  color: rgba(0, 245, 255, 0.68);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  writing-mode: vertical-rl;
+}
+
+.aura-side-rail-left {
+  left: 0;
+  border-left: 1px solid rgba(0, 245, 255, 0.2);
+}
+
+.aura-side-rail-right {
+  right: 0;
+  border-right: 1px solid rgba(0, 245, 255, 0.2);
+}
+
+.aura-side-rail-right::after {
+  content: 'MONITORING METRICS';
+  top: 10px;
+  bottom: auto;
+  right: 3px;
+}
+
+/* --- RESPONSIVE --- */
+
+@media (max-width: 1380px) {
+  .aura-shell { padding: 0.35rem; }
+  .hud-status-ribbon { margin-inline: 0.75rem; gap: 1.2rem; padding-inline: 1.25rem; }
+  .status-chip { font-size: 9px; }
+}
+
+@media (max-width: 1180px) {
+  html, body { overflow: auto; }
+  .aura-shell { min-width: 1180px; min-height: 820px; }
 }
