@@ -42,6 +42,21 @@ export function DanmakuOverlay({ visible, trackKey }: DanmakuOverlayProps) {
   const [items, setItems] = useState<DanmakuItem[]>([])
   const poolIndex = useRef(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
+
+  const clearScheduledTimeouts = useCallback(() => {
+    timeoutsRef.current.forEach((id) => clearTimeout(id))
+    timeoutsRef.current.clear()
+  }, [])
+
+  const scheduleTimeout = useCallback((callback: () => void, delay: number) => {
+    const id = setTimeout(() => {
+      timeoutsRef.current.delete(id)
+      callback()
+    }, delay)
+    timeoutsRef.current.add(id)
+    return id
+  }, [])
 
   const removeItem = useCallback((id: number) => {
     setItems((prev) => prev.filter((item) => item.id !== id))
@@ -60,14 +75,15 @@ export function DanmakuOverlay({ visible, trackKey }: DanmakuOverlayProps) {
       fontSize: 11 + Math.floor(Math.random() * 4),
     }
     setItems((prev) => [...prev, newItem])
-    setTimeout(() => removeItem(newItem.id), (newItem.duration + 2) * 1000)
-  }, [removeItem])
+    scheduleTimeout(() => removeItem(newItem.id), (newItem.duration + 2) * 1000)
+  }, [removeItem, scheduleTimeout])
 
   // Reset danmaku when track changes
   useEffect(() => {
+    clearScheduledTimeouts()
     setItems([])
     poolIndex.current = 0
-  }, [trackKey])
+  }, [trackKey, clearScheduledTimeouts])
 
   // Manage the danmaku spawn interval
   useEffect(() => {
@@ -76,14 +92,15 @@ export function DanmakuOverlay({ visible, trackKey }: DanmakuOverlayProps) {
         clearInterval(intervalRef.current)
         intervalRef.current = null
       }
+      clearScheduledTimeouts()
       setItems([])
       return
     }
 
     // Initial burst
-    const initialBatch = setTimeout(() => {
+    scheduleTimeout(() => {
       for (let i = 0; i < 5; i++) {
-        setTimeout(addItem, i * 700)
+        scheduleTimeout(addItem, i * 700)
       }
     }, 500)
 
@@ -91,13 +108,13 @@ export function DanmakuOverlay({ visible, trackKey }: DanmakuOverlayProps) {
     intervalRef.current = setInterval(addItem, 4000)
 
     return () => {
-      clearTimeout(initialBatch)
+      clearScheduledTimeouts()
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
         intervalRef.current = null
       }
     }
-  }, [visible, addItem])
+  }, [visible, addItem, scheduleTimeout, clearScheduledTimeouts])
 
   if (!visible) return null
 
@@ -111,7 +128,7 @@ export function DanmakuOverlay({ visible, trackKey }: DanmakuOverlayProps) {
             top: `${item.topPercent}%`,
             color: item.color,
             fontSize: `${item.fontSize}px`,
-            fontFamily: '"SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif',
+            fontFamily: 'inherit',
             fontWeight: 500,
             textShadow: `
               0 0 2px ${item.color},

@@ -1,8 +1,35 @@
 import { Track } from './types'
 import { enhanceSearchQuery, generateRecommendationQueries } from './deepseek'
-import { searchMusic, getTrackLyrics as chineseTrackLyrics, getTrackStreamUrl, MusicPlatform } from './chinese-music-api'
+import {
+  searchArtistTopTracks,
+  searchMusic,
+  getTrackLyrics as chineseTrackLyrics,
+  getTrackStreamUrl,
+  MusicPlatform,
+} from './chinese-music-api'
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
+
+interface YouTubeSearchItem {
+  id: {
+    videoId: string
+  }
+}
+
+interface YouTubeVideoItem {
+  id: string
+  snippet: {
+    title: string
+    channelTitle: string
+    thumbnails: {
+      high?: { url: string }
+      default: { url: string }
+    }
+  }
+  contentDetails: {
+    duration: string
+  }
+}
 
 /** 过滤掉没有可播放音频链接的歌曲 */
 function filterPlayable(tracks: Track[]): Track[] {
@@ -26,12 +53,15 @@ export interface SearchOptions {
   useDeepSeek?: boolean
   platform?: MusicPlatform
   neteaseCookie?: string
+  artist?: string
 }
 
-export async function searchTracks(options: SearchOptions): Promise<{ tracks: Track[]; explanation?: string }> {
-  let { query, maxResults = 20, apiKey, deepseekKey, platform = 'netease', neteaseCookie } = options
+export async function searchTracks(options: SearchOptions): Promise<{ tracks: Track[]; explanation?: string; errors?: string[] }> {
+  let { query } = options
+  const { maxResults = 20, apiKey, deepseekKey, platform = 'netease', neteaseCookie, artist } = options
   const key = getApiKey(apiKey)
   let explanation: string | undefined
+  const errors: string[] = []
 
   // 使用 DeepSeek 增强搜索：理解自然语言
   if (options.useDeepSeek !== false && getDeepSeekKey(deepseekKey)) {
@@ -44,13 +74,19 @@ export async function searchTracks(options: SearchOptions): Promise<{ tracks: Tr
 
   // 1. 优先使用中文音乐 API
   try {
-    const chineseTracks = await searchMusic(query, platform, maxResults, neteaseCookie)
+    const chineseTracks = artist
+      ? await searchArtistTopTracks(artist, platform, maxResults, neteaseCookie)
+      : await searchMusic(query, platform, maxResults, neteaseCookie)
+    if (artist && chineseTracks.length > 0) {
+      return { tracks: chineseTracks, explanation, errors }
+    }
     const playable = filterPlayable(chineseTracks)
     if (playable.length > 0) {
-      return { tracks: playable, explanation }
+      return { tracks: playable, explanation, errors }
     }
   } catch (error) {
     console.error('Chinese music API search failed:', error)
+    errors.push(error instanceof Error ? error.message : 'SEARCH_NETWORK: Chinese music API failed')
   }
 
   // 2. 回退到 YouTube API（YouTube URL 在浏览器 audio 元素中不可直接播放，但也列出）
@@ -59,16 +95,16 @@ export async function searchTracks(options: SearchOptions): Promise<{ tracks: Tr
       const searchUrl = `${YOUTUBE_API_BASE}/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=${maxResults}&videoCategoryId=10&key=${key}`
       const response = await fetch(searchUrl)
       if (!response.ok) throw new Error('YouTube API error')
-      const data = await response.json()
+      const data = await response.json() as { items?: YouTubeSearchItem[] }
 
-      const videoIds = data.items.map((item: any) => item.id.videoId).join(',')
-      if (!videoIds) return { tracks: [], explanation }
+      const videoIds = (data.items || []).map((item) => item.id.videoId).join(',')
+      if (!videoIds) return { tracks: [], explanation, errors }
 
       const videoUrl = `${YOUTUBE_API_BASE}/videos?part=contentDetails,snippet&id=${videoIds}&key=${key}`
       const videoRes = await fetch(videoUrl)
-      const videoData = await videoRes.json()
+      const videoData = await videoRes.json() as { items?: YouTubeVideoItem[] }
 
-      const tracks = videoData.items.map((item: any) => ({
+      const tracks = (videoData.items || []).map((item) => ({
         id: item.id,
         title: item.snippet.title,
         artist: item.snippet.channelTitle,
@@ -78,15 +114,16 @@ export async function searchTracks(options: SearchOptions): Promise<{ tracks: Tr
       }))
 
       const playable = filterPlayable(tracks)
-      return { tracks: playable, explanation }
+      return { tracks: playable, explanation, errors }
     } catch (error) {
       console.error('YouTube search failed:', error)
+      errors.push(error instanceof Error ? `YOUTUBE_SEARCH: ${error.message}` : 'YOUTUBE_SEARCH: unknown error')
     }
   }
 
   // 3. 最后回退到 Mock 数据
   const fallback = filterPlayable(getMockTracks(query))
-  return { tracks: fallback, explanation }
+  return { tracks: fallback, explanation, errors }
 }
 
 export async function getTrackLyrics(trackId: string, title: string, artist: string): Promise<string | null> {
@@ -174,11 +211,11 @@ export async function searchByGenre(genre: string, apiKey?: string): Promise<Tra
 }
 
 /** 获取歌曲的流播放链接（按需获取） */
-export async function fetchTrackStreamUrl(trackId: string): Promise<string | null> {
+export async function fetchTrackStreamUrl(trackId: string, neteaseCookie?: string): Promise<string | null> {
   const platformMatch = trackId.match(/^(netease|tencent|kugou|baidu|kuwo):(.+)$/)
   if (platformMatch) {
     const [, platform, id] = platformMatch
-    return getTrackStreamUrl(id, platform as MusicPlatform)
+    return getTrackStreamUrl(id, platform as MusicPlatform, neteaseCookie)
   }
   return null
 }
@@ -195,8 +232,9 @@ export function parseDuration(isoDuration: string): number {
 }
 
 export function formatDuration(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
+  const safeSeconds = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0
+  const mins = Math.floor(safeSeconds / 60)
+  const secs = safeSeconds % 60
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 

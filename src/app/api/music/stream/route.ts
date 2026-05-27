@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { fetchTrackStreamUrl } from '@/lib/music-service'
+import { getSessionUserId } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -13,7 +15,14 @@ export async function GET(request: Request) {
   }
 
   try {
-    const url = await fetchTrackStreamUrl(trackId)
+    const userId = await getSessionUserId()
+    let neteaseCookie: string | undefined
+    if (userId) {
+      const prefs = await prisma.userPreference.findUnique({ where: { userId } })
+      if (prefs?.neteaseCookie) neteaseCookie = prefs.neteaseCookie
+    }
+
+    const url = await fetchTrackStreamUrl(trackId, neteaseCookie)
     if (!url) {
       return NextResponse.json(
         { error: '无法获取播放链接' },

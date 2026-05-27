@@ -17,13 +17,13 @@ export function Sidebar() {
   ]
 
   return (
-    <aside className="w-60 bg-[#15152a] border-r border-[#2d2d4a] flex flex-col shrink-0">
+    <aside className="w-60 bg-[var(--bg-deep)] border-r border-[var(--border-subtle)] flex flex-col shrink-0">
       <div className="p-5">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#8b5cf6] to-[#06b6d4] flex items-center justify-center">
-            <span className="text-white font-bold text-sm">W</span>
+          <div className="w-8 h-8 rounded-[6px] bg-[var(--neon-cyan)] shadow-[var(--glow-cyan)] flex items-center justify-center">
+            <span className="text-[var(--bg-deep)] font-bold text-sm">A</span>
           </div>
-          <span className="text-lg font-bold gradient-text">WavePlayer</span>
+          <span className="neon-text-cyan text-lg font-bold tracking-[0.12em]">AURA</span>
         </Link>
       </div>
 
@@ -37,8 +37,8 @@ export function Sidebar() {
               href={item.href}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
                 isActive
-                  ? 'bg-[#8b5cf6]/20 text-[#8b5cf6] font-medium'
-                  : 'text-[#a0a0b8] hover:bg-[#252540] hover:text-white'
+                  ? 'bg-[var(--bg-hover)] text-[var(--neon-cyan)] font-medium'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-white'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -48,21 +48,21 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="p-3 border-t border-[#2d2d4a]">
+      <div className="p-3 border-t border-[var(--border-subtle)]">
         {user ? (
           <div className="space-y-2">
             <div className="flex items-center gap-3 px-3 py-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#06b6d4] flex items-center justify-center text-white text-xs font-bold">
+              <div className="w-8 h-8 rounded-full bg-[var(--neon-cyan)] shadow-[var(--glow-cyan)] flex items-center justify-center text-[var(--bg-deep)] text-xs font-bold">
                 {user.username[0].toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-white truncate">{user.username}</p>
-                <p className="text-xs text-[#6b6b85] truncate">{user.email}</p>
+                <p className="text-xs text-[var(--text-tertiary)] truncate">{user.email}</p>
               </div>
             </div>
             <button
               onClick={logout}
-              className="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#a0a0b8] hover:bg-[#252540] hover:text-white transition-all"
+              className="flex w-full items-center gap-3 px-3 py-2 rounded-[6px] text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-white transition-all"
             >
               <FiLogOut className="w-4 h-4" />
               退出登录
@@ -72,14 +72,14 @@ export function Sidebar() {
           <div className="space-y-1">
             <Link
               href="/login"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#a0a0b8] hover:bg-[#252540] hover:text-white transition-all"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-[6px] text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-white transition-all"
             >
               <FiLogIn className="w-4 h-4" />
               登录
             </Link>
             <Link
               href="/register"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#a0a0b8] hover:bg-[#252540] hover:text-white transition-all"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-[6px] text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-white transition-all"
             >
               <FiUserPlus className="w-4 h-4" />
               注册

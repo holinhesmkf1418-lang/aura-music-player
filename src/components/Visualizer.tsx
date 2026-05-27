@@ -17,7 +17,11 @@ export function Visualizer() {
     const width = canvas.width = canvas.offsetWidth
     const height = canvas.height = canvas.offsetHeight
     const bars = 64
-    const colors = ['#8b5cf6', '#7c3aed', '#06b6d4', '#0891b2', '#a78bfa']
+    const styles = getComputedStyle(document.documentElement)
+    const cyan = styles.getPropertyValue('--neon-cyan').trim()
+    const blue = styles.getPropertyValue('--neon-blue').trim()
+    const magenta = styles.getPropertyValue('--neon-magenta').trim()
+    const colors = [cyan, blue, cyan, magenta, blue]
 
     const draw = () => {
       ctx.clearRect(0, 0, width, height)
@@ -66,7 +70,7 @@ export function Visualizer() {
     <canvas
       ref={canvasRef}
       className="w-full h-16 opacity-60"
-      style={{ background: 'linear-gradient(to top, rgba(139, 92, 246, 0.1), transparent)' }}
+      style={{ background: 'linear-gradient(to top, color-mix(in srgb, var(--neon-cyan) 10%, transparent), transparent)' }}
     />
   )
 }

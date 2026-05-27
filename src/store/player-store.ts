@@ -1,6 +1,7 @@
 'use client'
 
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import { Track, EqualizerSettings } from '@/lib/types'
 import { getAudioEngine } from '@/lib/audio-engine'
 
@@ -42,7 +43,20 @@ interface PlayerStore {
   setSearchedTracks: (tracks: Track[]) => void
 }
 
-export const usePlayerStore = create<PlayerStore>((set, get) => ({
+async function resolvePlayableUrl(track: Track): Promise<string> {
+  if (track.audioUrl) return track.audioUrl
+
+  try {
+    const response = await fetch(`/api/music/stream?id=${encodeURIComponent(track.id)}`)
+    if (!response.ok) return ''
+    const data = await response.json()
+    return typeof data?.url === 'string' ? data.url : ''
+  } catch {
+    return ''
+  }
+}
+
+export const usePlayerStore = create<PlayerStore>()(persist((set, get) => ({
   currentTrack: null,
   queue: [],
   queueIndex: -1,
@@ -59,28 +73,43 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   showLyrics: false,
   searchedTracks: [],
 
-  play: (track, tracks) => {
+  play: async (track, tracks) => {
     // 在用户手势中直接开始播放音频（浏览器要求）
-    // 即使没有 audioUrl 也要调用引擎（走振荡器回退）
-    getAudioEngine().play(track.audioUrl || '', track.duration)
+    const resolvedAudioUrl = await resolvePlayableUrl(track)
+    const playableTrack = resolvedAudioUrl && resolvedAudioUrl !== track.audioUrl
+      ? { ...track, audioUrl: resolvedAudioUrl }
+      : track
 
-    const state = get()
-    if (tracks) {
-      const index = tracks.findIndex(t => t.id === track.id)
+    if (!resolvedAudioUrl) {
+      console.warn('No playable audio URL for track:', track.id)
       set({
         currentTrack: track,
-        queue: tracks,
-        queueIndex: index >= 0 ? index : 0,
-        isPlaying: true,
+        isPlaying: false,
         currentTime: 0,
         duration: track.duration,
       })
-    } else {
+      return
+    }
+
+    getAudioEngine().play(resolvedAudioUrl, playableTrack.duration)
+
+    if (tracks) {
+      const nextTracks = tracks.map((item) => item.id === playableTrack.id ? playableTrack : item)
+      const index = nextTracks.findIndex(t => t.id === playableTrack.id)
       set({
-        currentTrack: track,
+        currentTrack: playableTrack,
+        queue: nextTracks,
+        queueIndex: index >= 0 ? index : 0,
         isPlaying: true,
         currentTime: 0,
-        duration: track.duration,
+        duration: playableTrack.duration,
+      })
+    } else {
+      set({
+        currentTrack: playableTrack,
+        isPlaying: true,
+        currentTime: 0,
+        duration: playableTrack.duration,
       })
     }
   },
@@ -177,9 +206,10 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   setQuality: (quality) => set({ quality }),
 
   addToQueue: (track) =>
-    set((state) => ({
-      queue: [...state.queue, track],
-    })),
+    set((state) => {
+      if (state.queue.some((t) => t.id === track.id)) return state
+      return { queue: [...state.queue, track] }
+    }),
 
   removeFromQueue: (index) =>
     set((state) => ({
@@ -197,4 +227,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   toggleEqualizer: () => set((state) => ({ showEqualizer: !state.showEqualizer })),
   toggleLyrics: () => set((state) => ({ showLyrics: !state.showLyrics })),
   setSearchedTracks: (tracks) => set({ searchedTracks: tracks }),
+}), {
+  name: 'aura-player-settings',
+  partialize: (state) => ({
+    volume: state.volume,
+    repeatMode: state.repeatMode,
+    isShuffled: state.isShuffled,
+    equalizer: state.equalizer,
+  }),
 }))

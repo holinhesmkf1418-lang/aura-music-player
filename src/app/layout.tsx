@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AppShell } from "@/components/AppShell";
 import { PlayerProvider } from "@/components/PlayerProvider";
 
 export const metadata: Metadata = {
@@ -19,7 +20,9 @@ export default function RootLayout({
       </head>
       <body className="h-full flex flex-col">
         <PlayerProvider>
-          {children}
+          <AppShell>
+            {children}
+          </AppShell>
         </PlayerProvider>
       </body>
     </html>

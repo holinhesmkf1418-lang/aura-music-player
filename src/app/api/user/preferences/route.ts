@@ -5,7 +5,9 @@ import { getSessionUserId } from '@/lib/auth'
 export async function GET() {
   const userId = await getSessionUserId()
   if (!userId) {
-    return NextResponse.json({ preferences: null })
+    return NextResponse.json({
+      preferences: { genres: [], eras: [], artists: [], neteaseCookie: '' },
+    })
   }
 
   const prefs = await prisma.userPreference.findUnique({

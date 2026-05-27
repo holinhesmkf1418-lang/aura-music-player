@@ -1,42 +1,104 @@
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
+const DEFAULT_DEEPSEEK_MODEL = 'deepseek-v4-pro'
+const REQUEST_TIMEOUT_MS = 15000
+const MAX_RETRIES = 2
+const RETRY_DELAY_BASE_MS = 1000
+
+export type DeepSeekReasoningEffort = 'high' | 'max'
+
+export interface DeepSeekCallOptions {
+  maxTokens?: number
+  reasoningEffort?: DeepSeekReasoningEffort
+  thinking?: 'enabled' | 'disabled'
+}
 
 function getApiKey(userApiKey?: string): string {
   return userApiKey || process.env.DEEPSEEK_API_KEY || ''
 }
 
+function getModel(): string {
+  return process.env.DEEPSEEK_MODEL?.trim() || DEFAULT_DEEPSEEK_MODEL
+}
+
+function buildRequestBody(
+  messages: { role: string; content: string }[],
+  options: DeepSeekCallOptions = {},
+) {
+  const thinking = options.thinking ?? 'enabled'
+  const body: Record<string, unknown> = {
+    model: getModel(),
+    messages,
+    max_tokens: options.maxTokens ?? 1024,
+    thinking: { type: thinking },
+  }
+
+  if (thinking === 'enabled') {
+    body.reasoning_effort = options.reasoningEffort ?? 'high'
+  }
+
+  return body
+}
+
 async function callDeepSeek(
   messages: { role: string; content: string }[],
-  apiKey?: string
+  apiKey?: string,
+  options: DeepSeekCallOptions = {},
 ): Promise<string> {
   const key = getApiKey(apiKey)
   if (!key) return ''
 
-  try {
-    const res = await fetch(DEEPSEEK_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${key}`,
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages,
-        temperature: 0.7,
-        max_tokens: 512,
-      }),
-    })
-
-    if (!res.ok) {
-      console.warn(`DeepSeek API error: ${res.status} ${res.statusText}`)
-      return ''
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const delay = RETRY_DELAY_BASE_MS * Math.pow(2, attempt - 1)
+      await new Promise((r) => setTimeout(r, delay))
     }
 
-    const data = await res.json()
-    return data.choices?.[0]?.message?.content || ''
-  } catch (error) {
-    console.warn('DeepSeek API call failed:', error)
-    return ''
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
+    try {
+      const res = await fetch(DEEPSEEK_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${key}`,
+        },
+        body: JSON.stringify(buildRequestBody(messages, options)),
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!res.ok) {
+        // Don't retry 4xx errors (client errors like auth, bad request)
+        if (res.status >= 400 && res.status < 500) {
+          console.warn(`DeepSeek API error: ${res.status} ${res.statusText}`)
+          return ''
+        }
+        // 5xx errors may be transient, retry
+        console.warn(`DeepSeek API error (attempt ${attempt + 1}): ${res.status} ${res.statusText}`)
+        continue
+      }
+
+      const data = await res.json()
+      return data.choices?.[0]?.message?.content || ''
+    } catch (error) {
+      clearTimeout(timeoutId)
+
+      // AbortError = timeout
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        console.warn(`DeepSeek API timeout (attempt ${attempt + 1})`)
+      } else {
+        console.warn(`DeepSeek API call failed (attempt ${attempt + 1}):`, error)
+      }
+
+      // Don't retry on last attempt
+      if (attempt < MAX_RETRIES) continue
+    }
   }
+
+  console.warn(`DeepSeek API: all ${MAX_RETRIES + 1} attempts failed`)
+  return ''
 }
 
 /**
@@ -64,7 +126,8 @@ export async function enhanceSearchQuery(
         content: naturalLanguage,
       },
     ],
-    userApiKey
+    userApiKey,
+    { reasoningEffort: 'high', maxTokens: 700 },
   )
 
   if (!result) {
@@ -122,7 +185,8 @@ export async function generateRecommendationQueries(
 请推荐搜索关键词：`,
       },
     ],
-    userApiKey
+    userApiKey,
+    { reasoningEffort: 'high', maxTokens: 900 },
   )
 
   if (!result) return []
@@ -147,9 +211,10 @@ export async function generateRecommendationQueries(
  */
 export async function chatWithDeepSeek(
   messages: { role: string; content: string }[],
-  userApiKey?: string
+  userApiKey?: string,
+  options?: DeepSeekCallOptions,
 ): Promise<string> {
-  return callDeepSeek(messages, userApiKey)
+  return callDeepSeek(messages, userApiKey, options)
 }
 
 export async function translateLyrics(
@@ -174,7 +239,8 @@ export async function translateLyrics(
         content: lyrics,
       },
     ],
-    userApiKey
+    userApiKey,
+    { reasoningEffort: 'high', maxTokens: 2048 },
   )
 
   return result || lyrics

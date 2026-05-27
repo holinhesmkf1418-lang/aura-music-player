@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FiCpu, FiHardDrive, FiRadio } from 'react-icons/fi'
 
 function WaveMark() {
   return (
@@ -29,7 +28,7 @@ export function Header() {
   }, [])
 
   return (
-    <header className="hud-frame relative z-10 h-[62px] shrink-0 grid grid-cols-[278px_1fr_330px] items-center overflow-hidden px-4 select-none">
+    <header className="hud-frame aura-panel-dock relative z-10 h-[62px] shrink-0 grid grid-cols-[278px_1fr_160px] items-center overflow-hidden px-4 select-none">
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(0,245,255,0.5)] to-transparent opacity-60" />
 
       <div className="aura-brand-plate h-full flex items-center gap-4">
@@ -55,17 +54,11 @@ export function Header() {
         </div>
         <div className="status-chip">
           <span>AI_AGENT:</span>
-          <strong className="text-white/80">DEEPSEEK-R1</strong>
+          <strong className="text-white/80">DEEPSEEK-V4-PRO</strong>
         </div>
       </div>
 
       <div className="h-full flex items-center justify-end gap-6">
-        <div className="hidden xl:flex items-center gap-5 text-[10px] tracking-[0.14em] text-[var(--text-secondary)]">
-          <span className="flex items-center gap-1.5"><FiCpu className="text-[var(--neon-cyan)]" /> CPU 12%</span>
-          <span className="flex items-center gap-1.5"><FiHardDrive className="text-[var(--neon-cyan)]" /> RAM 24%</span>
-          <span className="flex items-center gap-1.5"><FiRadio className="text-[var(--neon-cyan)]" /> NET 8.2MB/s</span>
-        </div>
-
         <div className="aura-time-block min-w-[130px] text-right">
           <div className="neon-text-cyan text-[21px] leading-none tabular-nums tracking-[0.08em]">
             {timeStr}

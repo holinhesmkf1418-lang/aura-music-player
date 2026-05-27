@@ -5,10 +5,12 @@ import type {
   MusicAgentRequest,
   ParsedIntent,
   DeepSeekContext,
+  SearchPlan,
 } from './types'
 import { parseIntent } from './intent'
 import { mergeContext, createEmptyContext } from './context'
-import { searchForContext } from './search'
+import { searchForPlan } from './search'
+import { createSearchPlan } from './query-planner'
 import { rankTracks } from './rank'
 
 // 输入裁剪上限
@@ -17,9 +19,6 @@ const MAX_EXCLUDED_IDS = 100
 const MAX_HISTORY = 10
 const MAX_MESSAGE_LENGTH = 500
 
-/**
- * 裁剪上下文，确保不会过大（保留最近的数据）
- */
 function trimContext(context: AgentContext): AgentContext {
   return {
     ...context,
@@ -29,18 +28,12 @@ function trimContext(context: AgentContext): AgentContext {
   }
 }
 
-/**
- * 裁剪历史消息
- */
 function trimHistory(
   history: { role: string; content: string }[],
 ): { role: string; content: string }[] {
   return history.slice(-MAX_HISTORY)
 }
 
-/**
- * 为推荐类意图生成回复
- */
 function buildRecommendationReply(
   tracks: Track[],
   intent: ParsedIntent,
@@ -67,9 +60,6 @@ function buildRecommendationReply(
   return `为你找到 ${count} 首歌曲。`
 }
 
-/**
- * 根据引用索引获取 Track
- */
 function getReferencedTrack(
   context: AgentContext,
   index: number,
@@ -80,9 +70,6 @@ function getReferencedTrack(
   return context.lastResults[index]
 }
 
-/**
- * 构建 DeepSeek 意图解析所需的上下文
- */
 function buildDeepSeekContext(
   previousContext: AgentContext,
   history: { role: string; content: string }[],
@@ -91,13 +78,64 @@ function buildDeepSeekContext(
     history,
     lastResults: previousContext.lastResults,
     topic: previousContext.topic,
+    scene: previousContext.scene,
     mood: previousContext.mood,
+    genres: previousContext.genres,
+    artists: previousContext.artists,
     language: previousContext.language,
+    era: previousContext.era,
+    energy: previousContext.energy,
+    titleExclude: previousContext.titleExclude,
+    lastSearchQueries: previousContext.lastSearchQueries,
+    feedback: previousContext.feedback,
+  }
+}
+
+/**
+ * 执行搜索 + 排序 + 构建结果上下文的通用流程
+ */
+async function executeSearchAndRank(
+  plan: SearchPlan,
+  neteaseCookie: string | undefined,
+  maxExcludedIds: number,
+  shouldRank: boolean,
+  onProgress?: MusicAgentRequest['onProgress'],
+): Promise<{ finalTracks: Track[]; searchErrors: string[]; resultContext: Partial<AgentContext>; rankFallbackReason?: string }> {
+  let rankFallbackReason: string | undefined
+  const searchResult = await searchForPlan(plan, neteaseCookie)
+  let tracks = searchResult.tracks
+
+  if (tracks.length > 1) {
+    await onProgress?.({ status: 'ranking' })
+  }
+
+  if (shouldRank && tracks.length > 1) {
+    const ranked = await rankTracks(tracks, plan.rankHints, (reason) => {
+      rankFallbackReason = reason
+    })
+    if (ranked.length > 0) tracks = ranked
+  }
+
+  return {
+    finalTracks: tracks,
+    searchErrors: searchResult.errors,
+    rankFallbackReason,
+    resultContext: {
+      lastSearchQueries: plan.queries,
+      lastResults: tracks,
+      excludedTrackIds: [
+        ...plan.excludeTrackIds,
+        ...tracks.map((t) => t.id),
+      ].slice(-maxExcludedIds),
+    },
   }
 }
 
 /**
  * AI 音乐助手核心处理器
+ *
+ * 流程：
+ * parseIntent → 控制类早期返回 → mergeContext → createSearchPlan → searchForPlan → rankTracks → buildResponse
  */
 export async function handleMusicAgent(
   request: MusicAgentRequest,
@@ -109,12 +147,11 @@ export async function handleMusicAgent(
     ? trimContext(request.context)
     : createEmptyContext()
 
-  // ===== 1. 意图解析（带上下文） =====
+  // ===== 1. 意图解析 =====
   const dsContext = buildDeepSeekContext(previousContext, history)
   const parsed = await parseIntent(message, dsContext)
 
-  // ===== 2. 处理控制类意图（不搜索、不展示 tracks） =====
-  // pause / resume / next_track / previous_track
+  // ===== 2. 控制类意图（不搜索、不展示 tracks） =====
   if (parsed.intent === 'pause') {
     return { reply: '已暂停', intent: 'pause', tracks: [], actions: [{ type: 'pause' }], context: previousContext }
   }
@@ -128,11 +165,33 @@ export async function handleMusicAgent(
     return { reply: '已回到上一首', intent: 'previous_track', tracks: [], actions: [{ type: 'previous_track' }], context: previousContext }
   }
 
-  // ===== add_to_queue =====
+  // add_to_queue
   if (parsed.intent === 'add_to_queue') {
     if (previousContext.lastResults.length === 0) {
       return { reply: '当前没有可加入队列的歌曲，先搜一些歌吧', intent: 'add_to_queue', tracks: [], actions: [], context: previousContext }
     }
+
+    if (typeof parsed.referencedTrackIndex === 'number') {
+      const track = getReferencedTrack(previousContext, parsed.referencedTrackIndex)
+      if (!track) {
+        return {
+          reply: `没有找到第 ${parsed.referencedTrackIndex + 1} 首歌曲，当前结果只有 ${previousContext.lastResults.length} 首。`,
+          intent: 'add_to_queue',
+          tracks: [],
+          actions: [],
+          context: previousContext,
+          debug: { fallback: 'referenced_track_index_out_of_range' },
+        }
+      }
+      return {
+        reply: `已将「${track.title}」加入播放队列`,
+        intent: 'add_to_queue',
+        tracks: [],
+        actions: [{ type: 'append_queue', tracks: [track] }],
+        context: previousContext,
+      }
+    }
+
     return {
       reply: `已将 ${previousContext.lastResults.length} 首歌曲加入播放队列`,
       intent: 'add_to_queue',
@@ -142,7 +201,7 @@ export async function handleMusicAgent(
     }
   }
 
-  // ===== play_track（不展示 tracks，只执行播放动作） =====
+  // play_track
   if (parsed.intent === 'play_track') {
     const refIndex = parsed.referencedTrackIndex ?? 0
     const track = getReferencedTrack(previousContext, refIndex)
@@ -165,13 +224,15 @@ export async function handleMusicAgent(
     }
   }
 
-  // ===== 3. 上下文合并（推荐类意图） =====
+  // ===== 3. 上下文合并 =====
   const mergedContext = mergeContext(previousContext, parsed)
 
-  // ===== similar_to_track =====
+  // ===== 4. 搜索计划 =====
+  // similar_to_track 需要 seedTrack 来生成多维查询
+  let seedTrack: Track | null = null
   if (parsed.intent === 'similar_to_track') {
     const refIndex = parsed.referencedTrackIndex ?? 0
-    const seedTrack = getReferencedTrack(previousContext, refIndex)
+    seedTrack = getReferencedTrack(previousContext, refIndex)
     if (!seedTrack) {
       return {
         reply: `没有找到第 ${refIndex + 1} 首歌曲。`,
@@ -182,69 +243,40 @@ export async function handleMusicAgent(
         debug: { fallback: 'referenced_track_index_out_of_range' },
       }
     }
-
-    const seedContext: AgentContext = {
-      ...mergedContext,
-      topic: seedTrack.artist,
-      lastQuery: `${seedTrack.artist} ${seedTrack.title}`,
-    }
-
-    const { tracks, searchQueries } = await searchForContext(seedContext, request.neteaseCookie)
-    let finalTracks = tracks
-
-    if (parsed.needsDeepRank && finalTracks.length > 1) {
-      const ranked = await rankTracks(finalTracks, seedContext)
-      if (ranked.length > 0) finalTracks = ranked
-    }
-
-    const resultContext: AgentContext = {
-      ...seedContext,
-      lastSearchQueries: searchQueries,
-      lastResults: finalTracks,
-      excludedTrackIds: [
-        ...seedContext.excludedTrackIds,
-        ...finalTracks.map((t) => t.id),
-      ].slice(-MAX_EXCLUDED_IDS),
-    }
-
-    return {
-      reply: buildRecommendationReply(finalTracks, parsed, searchQueries),
-      intent: 'similar_to_track',
-      tracks: finalTracks,
-      actions: [{ type: 'replace_results', tracks: finalTracks }],
-      context: resultContext,
-      debug: { searchQueries, ranked: parsed.needsDeepRank },
-    }
   }
 
-  // ===== 4. 推荐类意图：搜索 =====
-  const { tracks, searchQueries } = await searchForContext(mergedContext, request.neteaseCookie)
-  let finalTracks = tracks
+  const plan = createSearchPlan(mergedContext, parsed, seedTrack ?? undefined)
+  await request.onProgress?.({ status: 'searching', queries: plan.queries })
 
-  if (parsed.needsDeepRank && finalTracks.length > 1) {
-    const ranked = await rankTracks(finalTracks, mergedContext)
-    if (ranked.length > 0) finalTracks = ranked
-  }
+  // ===== 5. 搜索 + 排序 =====
+  const { finalTracks, searchErrors, resultContext, rankFallbackReason } = await executeSearchAndRank(
+    plan,
+    request.neteaseCookie,
+    MAX_EXCLUDED_IDS,
+    parsed.needsDeepRank,
+    request.onProgress,
+  )
 
-  // ===== 5. 构建响应 =====
-  const resultContext: AgentContext = {
+  // ===== 6. 构建响应 =====
+  const context: AgentContext = {
     ...mergedContext,
-    lastSearchQueries: searchQueries,
-    lastResults: finalTracks,
-    excludedTrackIds: [
-      ...mergedContext.excludedTrackIds,
-      ...finalTracks.map((t) => t.id),
-    ].slice(-MAX_EXCLUDED_IDS),
+    ...resultContext,
+    feedback: mergedContext.feedback || [],
   }
 
   return {
-    reply: buildRecommendationReply(finalTracks, parsed, searchQueries),
+    reply: buildRecommendationReply(finalTracks, parsed, plan.queries),
     intent: parsed.intent,
     tracks: finalTracks,
     actions: finalTracks.length > 0
       ? [{ type: 'replace_results', tracks: finalTracks }]
       : [],
-    context: resultContext,
-    debug: { searchQueries, ranked: parsed.needsDeepRank },
+    context,
+    debug: {
+      searchQueries: plan.queries,
+      searchErrors,
+      ranked: parsed.needsDeepRank,
+      rankFallbackReason,
+    },
   }
 }

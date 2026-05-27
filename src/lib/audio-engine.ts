@@ -105,9 +105,10 @@ class AudioEngine {
     this.stop()
 
     if (!audioUrl) {
-      // 没有真实音频 URL 时，直接使用振荡器生成音乐
+      // 没有真实音频 URL 时不要伪造播放，避免把 fallback 音误认为真实歌曲。
       this._duration = duration
-      this.fallbackToOscillator()
+      this._isPlaying = false
+      this.notify()
       return
     }
 
@@ -142,8 +143,11 @@ class AudioEngine {
 
     // 加载出错时回退到 mock 振荡器
     audio.addEventListener('error', () => {
-      console.warn('Audio source failed to load, using oscillator fallback:', audioUrl)
-      this.fallbackToOscillator()
+      console.warn('Audio source failed to load:', audioUrl)
+      this._isPlaying = false
+      this.cleanupAudio()
+      this.stopTimer()
+      this.notify()
     })
 
     this.audio = audio
@@ -153,11 +157,10 @@ class AudioEngine {
       await audio.play()
       this.startTimer()
     } catch (err) {
-      // 自动播放被阻止，使用振荡器回退
-      console.warn('Audio play blocked, using oscillator fallback:', err)
+      console.warn('Audio play failed:', err)
       this._isPlaying = false
       this.cleanupAudio()
-      this.fallbackToOscillator()
+      this.notify()
     }
 
     this.notify()
