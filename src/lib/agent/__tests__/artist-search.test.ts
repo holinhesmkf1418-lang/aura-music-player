@@ -87,6 +87,27 @@ describe('artist search execution', () => {
     expect(tracks.slice(0, 5).map((track) => track.title)).toEqual(['兰亭序', '青花瓷', '夜曲', '稻香', '晴天'])
   })
 
+  it('keeps strict artist searches clean even when only collaboration tracks are returned', async () => {
+    mockSearchTracks.mockResolvedValue({
+      tracks: [
+        { id: '1', title: '山歌好比春江水', artist: '宋祖英 / 周杰伦', cover: '', duration: 0, audioUrl: 'url-1' },
+        { id: '2', title: '结尾曲-友谊地久天长', artist: '宋祖英 / 郎朗 / 周杰伦', cover: '', duration: 0, audioUrl: 'url-2' },
+      ],
+    })
+
+    const plan: SearchPlan = {
+      queries: ['周杰伦'],
+      fallbackQueries: ['周杰伦 热门歌曲'],
+      excludeTrackIds: [],
+      rankHints: { artists: ['周杰伦'] },
+      strictArtistMatch: true,
+    }
+
+    const { tracks } = await searchForPlan(plan)
+
+    expect(tracks).toEqual([])
+  })
+
   it('returns search errors when an upstream query throws', async () => {
     mockSearchTracks
       .mockRejectedValueOnce(new Error('SEARCH_NETWORK: netease unavailable'))

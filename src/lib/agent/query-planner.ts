@@ -213,6 +213,7 @@ function buildExactTrackPlan(
     titleExclude,
     excludeTrackIds,
     rankHints,
+    strictArtistMatch: true,
   }
 }
 

@@ -70,6 +70,12 @@ interface NeteaseArtistSongsResult {
   hotSongs?: NeteaseRawArtistSong[]
 }
 
+interface NeteaseSongSearchResult {
+  result?: {
+    songs?: NeteaseRawArtistSong[]
+  }
+}
+
 /**
  * 创建 Meting 实例并设置平台
  * 注入 VIP 会员 Cookie（优先使用传入的 cookie，其次环境变量），以获取完整歌曲
@@ -134,12 +140,12 @@ async function hydratePlayableTracks(
   m: Meting,
   platform: MusicPlatform,
   sourceTracks: MetingTrack[],
-  minPlayable: number = 5,
+  targetCount: number = 10,
 ): Promise<Track[]> {
   const allTracks: Track[] = []
   const BATCH_SIZE = 10
 
-  for (let batchStart = 0; batchStart < sourceTracks.length && allTracks.length < minPlayable; batchStart += BATCH_SIZE) {
+  for (let batchStart = 0; batchStart < sourceTracks.length && allTracks.length < targetCount; batchStart += BATCH_SIZE) {
     const batch = sourceTracks.slice(batchStart, batchStart + BATCH_SIZE)
     if (batch.length === 0) break
 
@@ -190,7 +196,53 @@ async function hydratePlayableTracks(
     }
   }
 
-  return allTracks
+  return allTracks.slice(0, targetCount)
+}
+
+async function hydrateRawNeteaseTracks(
+  m: Meting,
+  songs: NeteaseRawArtistSong[],
+  limit: number,
+): Promise<Track[]> {
+  const candidates = songs.slice(0, Math.max(limit * 2, 20))
+  if (candidates.length === 0) return []
+
+  const urlResults = await Promise.allSettled(
+    candidates.map((item) => m.url(String(item.id), 128)),
+  )
+
+  const tracks: Track[] = []
+
+  for (let index = 0; index < candidates.length; index++) {
+    const item = candidates[index]
+    const urlResult = urlResults[index]
+    let audioUrl = ''
+
+    if (urlResult?.status === 'fulfilled') {
+      try {
+        const urlData: MetingUrlResult = JSON.parse(urlResult.value)
+        audioUrl = urlData.url || ''
+      } catch {
+        // URL 解析失败
+      }
+    }
+
+    if (!audioUrl) continue
+
+    tracks.push({
+      id: `netease:${item.id}`,
+      title: item.name,
+      artist: item.ar?.map((artist) => artist.name).join(' / ') || '',
+      album: item.al?.name || '',
+      cover: ensureHttps(item.al?.picUrl || ''),
+      duration: item.dt ? Math.round(item.dt / 1000) : 0,
+      audioUrl: ensureHttps(audioUrl),
+    } as Track)
+
+    if (tracks.length >= limit) break
+  }
+
+  return tracks
 }
 
 function uniqueTracks(tracks: Track[]): Track[] {
@@ -249,38 +301,9 @@ export async function searchArtistTopTracks(
     const rawPlayableTracks: Track[] = []
 
     if (cleanRawTracks.length > 0) {
-      const candidates = cleanRawTracks.slice(0, Math.max(limit * 2, 20))
-      const urlResults = await Promise.allSettled(
-        candidates.map((item) => m.url(String(item.id), 128)),
-      )
+      rawPlayableTracks.push(...await hydrateRawNeteaseTracks(m, cleanRawTracks, limit))
 
-      for (let index = 0; index < candidates.length; index++) {
-        const item = candidates[index]
-        let audioUrl = ''
-        const urlResult = urlResults[index]
-        if (urlResult?.status === 'fulfilled') {
-          try {
-            const urlData: MetingUrlResult = JSON.parse(urlResult.value)
-            audioUrl = urlData.url || ''
-          } catch {
-            // URL 解析失败
-          }
-        }
-
-        if (!audioUrl) continue
-
-        rawPlayableTracks.push({
-          id: `${platform}:${item.id}`,
-          title: item.name,
-          artist: item.ar?.map((a) => a.name).join(' / ') || artistMatch.name || requestedArtist,
-          album: item.al?.name || '',
-          cover: ensureHttps(item.al?.picUrl || ''),
-          duration: item.dt ? Math.round(item.dt / 1000) : 0,
-          audioUrl: ensureHttps(audioUrl),
-        } as Track)
-      }
-
-      if (rawPlayableTracks.length >= Math.min(limit, 5)) {
+      if (rawPlayableTracks.length > 0) {
         return rawPlayableTracks.slice(0, limit)
       }
     }
@@ -316,10 +339,32 @@ export async function searchMusic(
   neteaseCookie?: string,
 ): Promise<Track[]> {
   const m = createMeting(platform, neteaseCookie)
+  const effectiveLimit = Math.max(limit, 1)
+  const searchLimit = Math.max(effectiveLimit * 2, 20)
 
   try {
-    // 第一步：搜索
-    const searchRaw = await m.search(query, { limit })
+    if (platform === 'netease') {
+      m.format(false)
+
+      const rawSearch = await m.search(query, { limit: searchLimit } as { limit: number })
+      let rawParsed: unknown
+      try {
+        rawParsed = JSON.parse(rawSearch)
+      } catch (e) {
+        console.error(`[${platform}] Failed to parse raw search results for "${query}":`, e)
+        throw new Error(`SEARCH_PARSE: ${platform} search response for "${query}" is not valid JSON`)
+      }
+
+      const rawSongs = (rawParsed as NeteaseSongSearchResult).result?.songs || []
+      if (rawSongs.length > 0) {
+        const rawTracks = await hydrateRawNeteaseTracks(m, rawSongs, effectiveLimit)
+        if (rawTracks.length > 0) return rawTracks
+      }
+    }
+
+    m.format(true)
+
+    const searchRaw = await m.search(query, { limit: searchLimit })
     let parsed: unknown
     try {
       parsed = JSON.parse(searchRaw)
@@ -328,14 +373,13 @@ export async function searchMusic(
       throw new Error(`SEARCH_PARSE: ${platform} search response for "${query}" is not valid JSON`)
     }
 
-    // 确保搜索结果是一个数组
     const searchResults: MetingTrack[] = Array.isArray(parsed) ? parsed : []
 
     if (searchResults.length === 0) {
       return []
     }
 
-    return hydratePlayableTracks(m, platform, searchResults, 5)
+    return hydratePlayableTracks(m, platform, searchResults, effectiveLimit)
   } catch (error) {
     console.error(`[${platform}] searchMusic error:`, error)
     if (error instanceof Error && error.message.startsWith('SEARCH_')) {
@@ -343,6 +387,8 @@ export async function searchMusic(
     }
     const message = error instanceof Error ? error.message : 'unknown error'
     throw new Error(`SEARCH_NETWORK: ${platform} search failed for "${query}": ${message}`)
+  } finally {
+    m.format(true)
   }
 }
 

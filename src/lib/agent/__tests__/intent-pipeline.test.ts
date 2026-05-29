@@ -143,6 +143,18 @@ describe('Intent Pipeline (intent.ts → query-planner.ts)', () => {
     expect(mockChat).not.toHaveBeenCalled()
   })
 
+  it('"周杰伦" → 裸歌手名 fast path，不调用 DeepSeek', async () => {
+    mockChat.mockResolvedValue('{}')
+
+    const parsed = await parseIntent('周杰伦')
+
+    expect(parsed.intent).toBe('new_recommendation')
+    expect(parsed.requestType).toBe('artist')
+    expect(parsed.artists).toEqual(['周杰伦'])
+    expect(parsed.needsDeepRank).toBe(false)
+    expect(mockChat).not.toHaveBeenCalled()
+  })
+
   // ============================================================
   // DeepSeek 匹配
   // ============================================================

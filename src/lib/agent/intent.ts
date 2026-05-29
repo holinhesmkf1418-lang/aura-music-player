@@ -97,6 +97,23 @@ function parseArtistFastPath(message: string): ParsedIntent | null {
   return null
 }
 
+function parseBareArtistFastPath(message: string): ParsedIntent | null {
+  if (/^(不是|不对|不要|别|换个|不行|不喜欢|重新|再来|换一批)/.test(message.trim())) {
+    return null
+  }
+
+  const artist = normalizeArtistAlias(cleanupArtistCandidate(message))
+  if (!artist || !isLikelyArtistName(artist)) return null
+
+  return {
+    intent: 'new_recommendation',
+    confidence: 0.93,
+    requestType: 'artist',
+    artists: [artist],
+    needsDeepRank: false,
+  }
+}
+
 /** 推断请求类型：从 ParsedIntent 的已有字段推断 requestType */
 function inferRequestType(parsedIntent: {
   intent: string
@@ -200,6 +217,11 @@ function deterministicParse(message: string): ParsedIntent | null {
   const artistIntent = parseArtistFastPath(trimmed)
   if (artistIntent) {
     return artistIntent
+  }
+
+  const bareArtistIntent = parseBareArtistFastPath(trimmed)
+  if (bareArtistIntent) {
+    return bareArtistIntent
   }
 
   // 换一批 / 刷新推荐

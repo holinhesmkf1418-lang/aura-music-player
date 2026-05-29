@@ -14,10 +14,12 @@ export async function GET(request: Request) {
 
   try {
     const decodedUrl = decodeURIComponent(audioUrl)
+    const range = request.headers.get('range')
     const response = await fetch(decodedUrl, {
       headers: {
         'Referer': 'https://music.163.com/',
         'User-Agent': 'Mozilla/5.0 (Linux; Android 11; M2007J3SC) AppleWebKit/537.36',
+        ...(range ? { 'Range': range } : {}),
       },
     })
 
@@ -25,15 +27,24 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: '获取音频失败' }, { status: 502 })
     }
 
-    // 流式转发音频数据
-    const audioBuffer = await response.arrayBuffer()
+    const headers = new Headers()
+    const contentType = response.headers.get('Content-Type')
+    const contentLength = response.headers.get('Content-Length')
+    const acceptRanges = response.headers.get('Accept-Ranges')
+    const contentRange = response.headers.get('Content-Range')
 
-    return new NextResponse(audioBuffer, {
+    if (contentType) headers.set('Content-Type', contentType)
+    if (contentLength) headers.set('Content-Length', contentLength)
+    if (acceptRanges) headers.set('Accept-Ranges', acceptRanges)
+    if (contentRange) headers.set('Content-Range', contentRange)
+    headers.set('Cache-Control', 'public, max-age=86400')
+    headers.set('Access-Control-Allow-Origin', '*')
+    headers.set('Cross-Origin-Resource-Policy', 'cross-origin')
+
+    return new NextResponse(response.body, {
+      status: response.status,
       headers: {
-        'Content-Type': response.headers.get('Content-Type') || 'audio/mpeg',
-        'Content-Length': response.headers.get('Content-Length') || String(audioBuffer.byteLength),
-        'Cache-Control': 'public, max-age=86400',
-        'Access-Control-Allow-Origin': '*',
+        ...Object.fromEntries(headers.entries()),
       },
     })
   } catch (error) {

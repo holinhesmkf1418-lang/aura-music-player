@@ -93,6 +93,10 @@ function finalizeTracks(
   const ordered = orderArtistMatches(titleFiltered, plan.rankHints.artists)
   const cleanArtistTracks = ordered.filter((track) => artistMatchScore(track, plan.rankHints.artists) >= 80)
 
+  if (plan.strictArtistMatch && plan.rankHints.artists?.length) {
+    return cleanArtistTracks
+  }
+
   if (plan.rankHints.artists?.length && cleanArtistTracks.length >= 5) {
     return cleanArtistTracks
   }

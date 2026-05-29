@@ -86,6 +86,7 @@ export interface SearchPlan {
   excludeTrackIds: string[]
   rankHints: RankHints
   maxTracks?: number
+  strictArtistMatch?: boolean
 }
 
 export type AgentAction =
