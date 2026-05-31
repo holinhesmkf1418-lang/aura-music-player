@@ -19,7 +19,7 @@ export default function SettingsPage() {
   const [cookieLoading, setCookieLoading] = useState(false)
   const [savingCookie, setSavingCookie] = useState(false)
 
-  // 加载已保存的 Cookie
+  // Load saved Cookie
   useEffect(() => {
     if (!user) return
     setCookieLoading(true)
@@ -121,7 +121,7 @@ export default function SettingsPage() {
                 <li>用 Chrome 打开 <span className="text-white">music.163.com</span> 并登录</li>
                 <li>按 <span className="text-white">F12</span> 打开开发者工具</li>
                 <li>点顶部 <span className="text-white">Application</span> 标签</li>
-                <li>左侧找到 <span className="text-white">Cookies → music.163.com</span></li>
+                <li>左侧找到 <span className="text-white">Cookies -&gt; music.163.com</span></li>
                 <li>找到 <span className="text-white">MUSIC_U</span> 和 <span className="text-white">__csrf</span>，把整行 Cookie 复制下来</li>
               </ol>
             </details>
