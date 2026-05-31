@@ -1,5 +1,5 @@
 import type { Track } from '@/lib/types'
-import type { AgentContext } from './types'
+import type { RankHints } from './types'
 import { chatWithDeepSeek } from '@/lib/deepseek'
 
 /**
@@ -8,7 +8,8 @@ import { chatWithDeepSeek } from '@/lib/deepseek'
  */
 export async function rankTracks(
   tracks: Track[],
-  context: AgentContext,
+  rankHints: RankHints,
+  onFallback?: (reason: string) => void,
 ): Promise<Track[]> {
   if (tracks.length <= 1) return tracks
 
@@ -17,7 +18,7 @@ export async function rankTracks(
     .map((t, i) => `${i}: ${t.title} - ${t.artist}`)
     .join('\n')
 
-  const contextDesc = buildContextDescription(context)
+  const contextDesc = buildContextDescription(rankHints)
 
   const systemPrompt = `你是一个音乐推荐排序助手。根据用户的需求，对候选歌曲进行排序。
 
@@ -34,11 +35,17 @@ ${candidateLines}
     { role: 'user', content: systemPrompt },
   ])
 
-  if (!result) return tracks
+  if (!result) {
+    onFallback?.('deepseek_no_response')
+    return tracks
+  }
 
   try {
     const indices: number[] = JSON.parse(result)
-    if (!Array.isArray(indices) || indices.length === 0) return tracks
+    if (!Array.isArray(indices) || indices.length === 0) {
+      onFallback?.('empty_indices')
+      return tracks
+    }
 
     // 按 DeepSeek 返回的顺序重新排列，忽略无效索引
     const ordered: Track[] = []
@@ -60,23 +67,22 @@ ${candidateLines}
 
     return ordered
   } catch {
+    onFallback?.('json_parse_error')
     return tracks
   }
 }
 
-function buildContextDescription(context: AgentContext): string {
+function buildContextDescription(rankHints: RankHints): string {
   const parts: string[] = []
-  if (context.topic) parts.push(`主题：${context.topic}`)
-  if (context.scene) parts.push(`场景：${context.scene}`)
-  if (context.mood?.length) parts.push(`情绪：${context.mood.join('、')}`)
-  if (context.genres?.length) parts.push(`风格：${context.genres.join('、')}`)
-  if (context.artists?.length) parts.push(`歌手：${context.artists.join('、')}`)
-  if (context.era) parts.push(`年代：${context.era}`)
-  if (context.language === 'zh') parts.push('语言：中文')
-  if (context.language === 'en') parts.push('语言：英文')
-  if (context.language === 'mixed') parts.push('语言：中英文混合')
-  if (context.energy === 'high') parts.push('能量：高/节奏强劲')
-  if (context.energy === 'low') parts.push('能量：低/舒缓')
-  if (context.energy === 'medium') parts.push('能量：适中')
+  if (rankHints.topic) parts.push(`主题：${rankHints.topic}`)
+  if (rankHints.scene) parts.push(`场景：${rankHints.scene}`)
+  if (rankHints.mood?.length) parts.push(`情绪：${rankHints.mood.join('、')}`)
+  if (rankHints.genres?.length) parts.push(`风格：${rankHints.genres.join('、')}`)
+  if (rankHints.language === 'zh') parts.push('语言：中文')
+  if (rankHints.language === 'en') parts.push('语言：英文')
+  if (rankHints.language === 'mixed') parts.push('语言：中英文混合')
+  if (rankHints.energy === 'high') parts.push('能量：高/节奏强劲')
+  if (rankHints.energy === 'low') parts.push('能量：低/舒缓')
+  if (rankHints.energy === 'medium') parts.push('能量：适中')
   return parts.join('；') || '无特定要求'
 }
