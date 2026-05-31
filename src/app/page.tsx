@@ -47,9 +47,9 @@ export default function HomePage() {
       <div className="aura-side-rail aura-side-rail-right" />
       <Header />
 
-      <div className="relative z-10 flex-1 grid grid-cols-[minmax(620px,1.55fr)_minmax(340px,0.7fr)_140px] gap-2 min-h-0 mt-2">
-        <div className="grid grid-rows-[minmax(0,1.76fr)_minmax(230px,0.92fr)] gap-2 min-w-0 min-h-0">
-          <section className="hud-frame min-h-0 overflow-hidden">
+      <div className="aura-home-grid relative z-10 mt-2 grid min-h-0 flex-1 grid-cols-[minmax(700px,1.72fr)_minmax(330px,0.68fr)_118px] gap-2">
+        <div className="aura-home-left-grid grid min-h-0 min-w-0 grid-rows-[minmax(0,1.95fr)_minmax(210px,0.74fr)] gap-2">
+          <section className="hud-frame aura-panel-strong min-h-0 overflow-hidden">
             <NowPlayingPanel />
           </section>
           <section className="hud-frame min-h-0 overflow-hidden">
@@ -57,18 +57,18 @@ export default function HomePage() {
           </section>
         </div>
 
-        <section className="hud-frame min-w-0 min-h-0 overflow-hidden">
+        <section className="hud-frame aura-panel-strong min-w-0 min-h-0 overflow-hidden">
           <AgentChatPanel />
         </section>
 
-        <aside className="hud-frame min-w-0 min-h-0 overflow-hidden">
+        <aside className="aura-home-monitor hud-frame aura-panel-muted min-h-0 min-w-0 overflow-hidden opacity-85">
           <SystemMonitor />
         </aside>
       </div>
 
-      <div className="relative z-10 grid grid-cols-[minmax(480px,0.43fr)_1fr] gap-2 h-[62px] mt-2 shrink-0">
+      <div className="aura-home-bottom-grid relative z-10 mt-2 grid h-[54px] shrink-0 grid-cols-[minmax(420px,0.38fr)_1fr] gap-2">
         <MiniPlayer />
-        <div className="hud-frame flex items-center px-4 overflow-hidden">
+        <div className="hud-frame aura-panel-dock flex items-center px-4 overflow-hidden">
           <div className="w-full">
             <div className="flex items-center gap-2 text-[10px] tracking-[0.16em] text-[var(--text-secondary)]">
               <span className="text-[var(--neon-cyan)]">&gt;</span>

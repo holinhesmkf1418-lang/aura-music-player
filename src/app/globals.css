@@ -14,6 +14,11 @@
   --bg-deep: #02070a;
   --bg-panel: rgba(0, 20, 26, 0.45);
   --bg-hover: rgba(0, 245, 255, 0.04);
+  --glass-strong: rgba(2, 16, 22, 0.6);
+  --glass-medium: rgba(2, 14, 20, 0.48);
+  --glass-soft: rgba(2, 12, 18, 0.38);
+  --glass-line: rgba(148, 245, 255, 0.16);
+  --glass-line-strong: rgba(148, 245, 255, 0.28);
   --border-subtle: rgba(0, 245, 255, 0.08);
   --border-default: rgba(0, 245, 255, 0.12);
   --border-active: rgba(0, 245, 255, 0.25);
@@ -91,8 +96,8 @@ body {
     0deg,
     transparent,
     transparent 1px,
-    rgba(0, 0, 0, 0.06) 1px,
-    rgba(0, 0, 0, 0.06) 3px
+    rgba(0, 0, 0, 0.035) 1px,
+    rgba(0, 0, 0, 0.035) 3px
   );
 }
 
@@ -112,7 +117,7 @@ body {
   inset: 0;
   pointer-events: none;
   z-index: 9997;
-  background: radial-gradient(ellipse 65% 55% at center, transparent 55%, rgba(0, 0, 0, 0.5) 100%);
+  background: radial-gradient(ellipse 70% 60% at center, transparent 58%, rgba(0, 0, 0, 0.36) 100%);
 }
 
 /* --- NEON TEXT --- */
@@ -150,6 +155,35 @@ body {
   background-size: 40px 40px;
 }
 
+.aura-cover-stage {
+  box-shadow:
+    inset 0 0 42px rgba(0, 245, 255, 0.08),
+    0 0 36px rgba(0, 245, 255, 0.12),
+    0 22px 60px rgba(0, 0, 0, 0.32);
+}
+
+.aura-cover-stage::before,
+.aura-cover-stage::after {
+  content: '';
+  position: absolute;
+  inset: 14px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.aura-cover-stage::before {
+  border-top: 1px solid rgba(0, 245, 255, 0.42);
+  border-left: 1px solid rgba(0, 245, 255, 0.32);
+}
+
+.aura-cover-stage::after {
+  inset: auto 14px 14px auto;
+  width: 42%;
+  height: 34%;
+  border-right: 1px solid rgba(217, 70, 239, 0.34);
+  border-bottom: 1px solid rgba(217, 70, 239, 0.34);
+}
+
 /* --- NEURAL NET NODES --- */
 
 .neural-node {
@@ -165,7 +199,7 @@ body {
 .aura-progress {
   -webkit-appearance: none;
   appearance: none;
-  height: 2px;
+  height: 3px;
   background: rgba(0, 245, 255, 0.1);
   outline: none;
   cursor: pointer;
@@ -209,10 +243,11 @@ body {
   background:
     linear-gradient(rgba(0, 245, 255, 0.024) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 245, 255, 0.018) 1px, transparent 1px),
-    radial-gradient(circle at 8% 0%, rgba(0, 245, 255, 0.12), transparent 24%),
-    radial-gradient(circle at 70% 8%, rgba(217, 70, 239, 0.055), transparent 30%),
+    linear-gradient(135deg, rgba(0, 245, 255, 0.105), transparent 28%),
+    linear-gradient(235deg, rgba(217, 70, 239, 0.06), transparent 34%),
+    linear-gradient(180deg, #02070a 0%, #031217 48%, #02070a 100%),
     var(--bg-deep);
-  background-size: 38px 38px, 38px 38px, auto, auto, auto;
+  background-size: 38px 38px, 38px 38px, auto, auto, auto, auto;
 }
 
 .aura-shell::before,
@@ -242,14 +277,20 @@ body {
 
 .hud-frame {
   position: relative;
-  border: 1px solid rgba(0, 245, 255, 0.18);
-  border-radius: 4px;
+  isolation: isolate;
+  border: 1px solid var(--glass-line);
+  border-radius: 6px;
   background:
-    linear-gradient(180deg, rgba(0, 245, 255, 0.04), rgba(0, 245, 255, 0.015) 32%, rgba(0, 0, 0, 0.1)),
-    rgba(0, 9, 14, 0.72);
+    linear-gradient(135deg, rgba(255, 255, 255, 0.07), transparent 30%),
+    linear-gradient(180deg, rgba(0, 245, 255, 0.052), rgba(0, 245, 255, 0.014) 36%, rgba(0, 0, 0, 0.16)),
+    var(--glass-medium);
   box-shadow:
-    inset 0 0 28px rgba(0, 245, 255, 0.045),
-    0 0 18px rgba(0, 245, 255, 0.035);
+    inset 0 1px 0 rgba(255, 255, 255, 0.095),
+    inset 0 0 34px rgba(0, 245, 255, 0.035),
+    0 18px 46px rgba(0, 0, 0, 0.34),
+    0 0 20px rgba(0, 245, 255, 0.035);
+  backdrop-filter: blur(22px) saturate(132%);
+  -webkit-backdrop-filter: blur(22px) saturate(132%);
 }
 
 .hud-frame::before,
@@ -265,17 +306,93 @@ body {
 .hud-frame::before {
   top: 5px;
   left: 5px;
-  border-top: 1px solid var(--neon-cyan);
-  border-left: 1px solid var(--neon-cyan);
-  opacity: 0.78;
+  border-top: 1px solid rgba(148, 245, 255, 0.72);
+  border-left: 1px solid rgba(148, 245, 255, 0.62);
+  opacity: 0.68;
 }
 
 .hud-frame::after {
   right: 5px;
   bottom: 5px;
-  border-right: 1px solid var(--neon-cyan);
-  border-bottom: 1px solid var(--neon-cyan);
-  opacity: 0.42;
+  border-right: 1px solid rgba(0, 245, 255, 0.52);
+  border-bottom: 1px solid rgba(0, 245, 255, 0.45);
+  opacity: 0.34;
+}
+
+.aura-panel-strong {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.085), transparent 28%),
+    linear-gradient(180deg, rgba(0, 245, 255, 0.07), rgba(0, 20, 28, 0.28) 42%, rgba(0, 0, 0, 0.2)),
+    var(--glass-strong);
+  border-color: var(--glass-line-strong);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 48px rgba(0, 245, 255, 0.045),
+    0 24px 64px rgba(0, 0, 0, 0.42),
+    0 0 28px rgba(0, 245, 255, 0.05);
+}
+
+.aura-panel-muted {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.035), transparent 32%),
+    linear-gradient(180deg, rgba(0, 245, 255, 0.032), rgba(0, 0, 0, 0.12)),
+    rgba(1, 10, 15, 0.46);
+  border-color: rgba(0, 245, 255, 0.11);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    inset 0 0 26px rgba(0, 245, 255, 0.024),
+    0 14px 34px rgba(0, 0, 0, 0.26);
+}
+
+.aura-panel-dock {
+  background:
+    linear-gradient(90deg, rgba(0, 245, 255, 0.05), rgba(255, 255, 255, 0.028) 44%, rgba(217, 70, 239, 0.035)),
+    rgba(2, 13, 19, 0.6);
+  backdrop-filter: blur(18px) saturate(128%);
+  -webkit-backdrop-filter: blur(18px) saturate(128%);
+}
+
+.aura-glass-card {
+  border: 1px solid rgba(148, 245, 255, 0.13);
+  border-radius: 6px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.072), transparent 30%),
+    rgba(1, 11, 17, 0.48);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.082),
+    inset 0 0 24px rgba(0, 245, 255, 0.025),
+    0 12px 28px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(16px) saturate(126%);
+  -webkit-backdrop-filter: blur(16px) saturate(126%);
+}
+
+.aura-glass-card-strong {
+  border-color: rgba(148, 245, 255, 0.2);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.07), transparent 26%),
+    linear-gradient(180deg, rgba(0, 245, 255, 0.055), rgba(1, 10, 16, 0.54)),
+    rgba(1, 12, 18, 0.58);
+}
+
+.aura-glass-control {
+  border: 1px solid rgba(148, 245, 255, 0.16);
+  border-radius: 5px;
+  background: rgba(0, 245, 255, 0.055);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 18px rgba(0, 245, 255, 0.035);
+  backdrop-filter: blur(14px) saturate(122%);
+  -webkit-backdrop-filter: blur(14px) saturate(122%);
+}
+
+.aura-glass-row {
+  border-left: 1px solid transparent;
+  background: transparent;
+}
+
+.aura-glass-row:hover {
+  border-left-color: rgba(148, 245, 255, 0.45);
+  background: rgba(0, 245, 255, 0.052);
 }
 
 /* --- TITLE BAR (inside hud-frame) --- */
@@ -285,9 +402,13 @@ body {
   min-height: 38px;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid rgba(0, 245, 255, 0.09);
+  border-bottom: 1px solid rgba(148, 245, 255, 0.11);
   padding: 0.625rem 1rem;
-  background: linear-gradient(90deg, rgba(0, 245, 255, 0.045), transparent 46%, rgba(0, 245, 255, 0.025));
+  background:
+    linear-gradient(90deg, rgba(0, 245, 255, 0.06), rgba(255, 255, 255, 0.02) 45%, rgba(217, 70, 239, 0.028)),
+    rgba(0, 12, 18, 0.36);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
 }
 
 /* --- BRAND PLATE (header logo) --- */
@@ -333,10 +454,12 @@ body {
 
 .hud-status-ribbon {
   position: relative;
-  border-top: 1px solid rgba(0, 245, 255, 0.12);
-  border-bottom: 1px solid rgba(0, 245, 255, 0.08);
-  background: rgba(0, 14, 20, 0.64);
+  border-top: 1px solid rgba(148, 245, 255, 0.16);
+  border-bottom: 1px solid rgba(148, 245, 255, 0.1);
+  background: rgba(0, 14, 20, 0.48);
   clip-path: polygon(18px 0, 100% 0, calc(100% - 24px) 100%, 0 100%);
+  backdrop-filter: blur(14px) saturate(125%);
+  -webkit-backdrop-filter: blur(14px) saturate(125%);
 }
 
 .hud-status-ribbon::before {
@@ -370,10 +493,12 @@ body {
 .aura-time-block {
   position: relative;
   padding: 0.65rem 0.9rem 0.55rem;
-  border-left: 1px solid rgba(0, 245, 255, 0.14);
-  border-right: 1px solid rgba(0, 245, 255, 0.14);
-  background: rgba(0, 245, 255, 0.035);
+  border-left: 1px solid rgba(148, 245, 255, 0.17);
+  border-right: 1px solid rgba(148, 245, 255, 0.17);
+  background: rgba(0, 245, 255, 0.052);
   clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+  backdrop-filter: blur(14px) saturate(125%);
+  -webkit-backdrop-filter: blur(14px) saturate(125%);
 }
 
 /* --- EQ STRIP (animated equalizer) --- */
@@ -417,16 +542,20 @@ body {
 
 .aura-play-button {
   display: grid;
-  width: 58px;
-  height: 58px;
+  width: 52px;
+  height: 52px;
   place-items: center;
   border: 1px solid var(--neon-cyan);
   border-radius: 50%;
   color: var(--neon-cyan);
-  font-size: 31px;
+  font-size: 28px;
+  background: rgba(0, 245, 255, 0.035);
   box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
     inset 0 0 18px rgba(0, 245, 255, 0.1),
     0 0 20px rgba(0, 245, 255, 0.18);
+  backdrop-filter: blur(10px) saturate(125%);
+  -webkit-backdrop-filter: blur(10px) saturate(125%);
   transition: transform 160ms ease, background 160ms ease;
 }
 
@@ -462,7 +591,10 @@ body {
   border-radius: 50%;
   color: var(--neon-cyan);
   font-size: 19px;
-  box-shadow: inset 0 0 14px rgba(0, 245, 255, 0.1), 0 0 16px rgba(0, 245, 255, 0.14);
+  background: rgba(0, 245, 255, 0.035);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 14px rgba(0, 245, 255, 0.1), 0 0 16px rgba(0, 245, 255, 0.14);
+  backdrop-filter: blur(10px) saturate(125%);
+  -webkit-backdrop-filter: blur(10px) saturate(125%);
 }
 
 /* --- SIDE RAILS (decorative) --- */
@@ -518,6 +650,25 @@ body {
 }
 
 @media (max-width: 1180px) {
-  html, body { overflow: auto; }
-  .aura-shell { min-width: 1180px; min-height: 820px; }
+  html, body { overflow: hidden; }
+  .aura-shell {
+    min-width: 0;
+    min-height: 0;
+  }
+  .aura-side-rail { display: none; }
+  .aura-home-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1.4fr) minmax(250px, 0.72fr);
+  }
+  .aura-home-left-grid {
+    grid-template-rows: minmax(0, 1.35fr) minmax(180px, 0.68fr);
+  }
+  .aura-home-monitor { display: none; }
+  .aura-home-bottom-grid {
+    height: 50px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .aura-home-bottom-grid > .hud-frame:nth-child(2) {
+    display: none;
+  }
 }
