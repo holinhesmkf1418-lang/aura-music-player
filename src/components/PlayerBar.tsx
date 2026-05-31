@@ -42,9 +42,9 @@ export function PlayerBar() {
   }
 
   return (
-    <div className="hud-frame flex min-w-0 items-center gap-4 overflow-hidden px-4">
+    <div className="hud-frame aura-panel-dock flex min-w-0 items-center gap-3 overflow-hidden px-3 opacity-[0.9]">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="h-12 w-12 shrink-0 overflow-hidden border border-[rgba(0,245,255,0.22)] bg-black/50">
+        <div className="aura-glass-card h-9 w-9 shrink-0 overflow-hidden opacity-90">
           {displayTrack?.cover ? (
             <img src={displayTrack.cover} alt={displayTrack.title} className="h-full w-full object-cover" />
           ) : (
@@ -53,14 +53,14 @@ export function PlayerBar() {
             </div>
           )}
         </div>
-        <div className="min-w-[150px]">
-          <p className="truncate text-[16px] leading-tight text-white">{displayTrack?.title || '未选择歌曲'}</p>
-          <p className="mt-1 truncate text-[12px] font-semibold text-[var(--neon-cyan)]">{displayTrack?.artist || '-'}</p>
+        <div className="min-w-[130px]">
+          <p className="truncate text-[13px] leading-tight text-white/85">{displayTrack?.title || '未选择歌曲'}</p>
+          <p className="mt-0.5 truncate text-[10px] font-semibold tracking-[0.08em] text-[rgba(0,245,255,0.8)]">{displayTrack?.artist || 'AURA_DOCK'}</p>
         </div>
       </div>
 
-      <div className="flex w-[220px] items-center gap-3">
-        <span className="w-16 text-right text-[12px] tabular-nums text-[var(--text-secondary)]">
+      <div className="flex w-[190px] items-center gap-2">
+        <span className="w-14 text-right text-[10px] tabular-nums text-[var(--text-secondary)]">
           {formatDuration(Math.floor(displayCurrentTime))}
         </span>
         <input
@@ -74,12 +74,12 @@ export function PlayerBar() {
             background: `linear-gradient(to right, rgba(0,245,255,0.92) ${progress}%, rgba(0,245,255,0.14) ${progress}%)`,
           }}
         />
-        <span className="w-12 text-[12px] tabular-nums text-[var(--text-secondary)]">
+        <span className="w-11 text-[10px] tabular-nums text-[var(--text-secondary)]">
           {formatDuration(displayDuration)}
         </span>
       </div>
 
-      <div className="flex shrink-0 items-center gap-4">
+      <div className="flex shrink-0 items-center gap-3">
         <button onClick={handlePrev} className="aura-mini-button" aria-label="上一首">
           <FiSkipBack />
         </button>

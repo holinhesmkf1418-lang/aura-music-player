@@ -41,7 +41,7 @@ export function PlaylistTable({ tracks, loading }: PlaylistTableProps) {
         <PlaylistHeader count={0} />
         <div className="grid flex-1 grid-cols-2 gap-px p-3">
           {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="h-8 animate-pulse bg-[rgba(0,245,255,0.035)]" />
+            <div key={i} className="aura-glass-card h-8 animate-pulse" />
           ))}
         </div>
       </div>
@@ -51,9 +51,9 @@ export function PlaylistTable({ tracks, loading }: PlaylistTableProps) {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <PlaylistHeader count={tracks.length} />
-      <div className="grid grid-cols-2 border-b border-[rgba(0,245,255,0.08)] px-4 py-2 text-[11px] tracking-[0.16em] text-[var(--text-tertiary)]">
+      <div className="grid grid-cols-2 border-b border-[rgba(148,245,255,0.08)] bg-[rgba(255,255,255,0.012)] px-4 py-2 text-[11px] tracking-[0.16em] text-[var(--text-tertiary)]">
         {[0, 1].map((column) => (
-          <div key={column} className={`grid grid-cols-[42px_1.7fr_1.45fr_1.5fr_46px] gap-3 ${column === 1 ? 'border-l border-[rgba(0,245,255,0.08)] pl-4' : 'pr-4'}`}>
+          <div key={column} className={`grid grid-cols-[42px_1.7fr_1.45fr_1.5fr_46px] gap-3 ${column === 1 ? 'border-l border-[rgba(148,245,255,0.08)] pl-4' : 'pr-4'}`}>
             {HEADERS.map((label) => (
               <span key={label} className={label === 'DUR' ? 'text-right' : ''}>{label}</span>
             ))}
@@ -63,7 +63,7 @@ export function PlaylistTable({ tracks, loading }: PlaylistTableProps) {
 
       <div className="grid min-h-0 flex-1 grid-cols-2 overflow-hidden px-4 py-2">
         {columns.map((columnTracks, columnIndex) => (
-          <div key={columnIndex} className={columnIndex === 1 ? 'border-l border-[rgba(0,245,255,0.08)] pl-4' : 'pr-4'}>
+          <div key={columnIndex} className={columnIndex === 1 ? 'border-l border-[rgba(148,245,255,0.08)] pl-4' : 'pr-4'}>
             {columnTracks.map((track, index) => {
               const absoluteIndex = columnIndex * 6 + index
               const isCurrent = currentTrack?.id === track.id || (!currentTrack && absoluteIndex === 0)
@@ -73,10 +73,10 @@ export function PlaylistTable({ tracks, loading }: PlaylistTableProps) {
                 <button
                   key={track.id}
                   type="button"
-                  className={`group grid h-[31px] w-full grid-cols-[42px_1.7fr_1.45fr_1.5fr_46px] items-center gap-3 border-l text-left text-[12px] transition
+                  className={`group aura-glass-row grid h-[31px] w-full grid-cols-[42px_1.7fr_1.45fr_1.5fr_46px] items-center gap-3 text-left text-[12px] transition
                     ${isCurrent
-                      ? 'border-l-[var(--neon-cyan)] bg-[rgba(0,245,255,0.075)] text-[var(--neon-cyan)] shadow-[inset_18px_0_28px_rgba(0,245,255,0.04)]'
-                      : 'border-l-transparent text-[var(--text-secondary)] hover:border-l-[rgba(0,245,255,0.4)] hover:bg-[rgba(0,245,255,0.04)] hover:text-white'
+                      ? 'border-l-[var(--neon-cyan)] bg-[rgba(0,245,255,0.085)] text-[var(--neon-cyan)] shadow-[inset_18px_0_28px_rgba(0,245,255,0.045)]'
+                      : 'text-[var(--text-secondary)] hover:text-white'
                     }`}
                   onClick={() => {
                     if (isCurrent && currentTrack && isPlaying) {
@@ -113,7 +113,7 @@ function PlaylistHeader({ count }: { count: number }) {
         <span className="text-[13px] font-semibold tracking-[0.16em] text-[var(--neon-cyan)]">PLAYLIST</span>
         <span className="text-[11px] tracking-[0.12em] text-[var(--text-tertiary)]">NOW PLAYING ({count})</span>
       </div>
-      <span className="text-[11px] tracking-[0.12em] text-[var(--text-secondary)]">TOTAL 98 TRACKS</span>
+      <span className="text-[11px] tracking-[0.12em] text-[var(--text-secondary)]">TOTAL {count} TRACKS</span>
     </div>
   )
 }
