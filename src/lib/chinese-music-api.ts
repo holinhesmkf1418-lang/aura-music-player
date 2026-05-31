@@ -5,6 +5,7 @@
  */
 import Meting from '@meting/core'
 import { Track } from './types'
+import { artistNameMatches, normalizeArtistAlias } from './artist-alias'
 
 // Meting 支持的平台
 export type MusicPlatform = 'netease' | 'tencent' | 'kugou' | 'baidu' | 'kuwo'
@@ -32,6 +33,47 @@ interface MetingUrlResult {
 interface MetingLyricResult {
   lyric: string
   tlyric: string
+}
+
+type MetingArtistCapable = Meting & {
+  artist: (id: string, limit: number) => Promise<string>
+}
+
+interface NeteaseArtistSearchResult {
+  result?: {
+    artists?: Array<{
+      id: number | string
+      name: string
+      alias?: string[]
+      alia?: string[]
+    }>
+  }
+}
+
+interface NeteaseArtistMatch {
+  id: string
+  name: string
+}
+
+interface NeteaseRawArtistSong {
+  id: number | string
+  name: string
+  dt?: number
+  ar?: Array<{ name: string }>
+  al?: {
+    name?: string
+    picUrl?: string
+  }
+}
+
+interface NeteaseArtistSongsResult {
+  hotSongs?: NeteaseRawArtistSong[]
+}
+
+interface NeteaseSongSearchResult {
+  result?: {
+    songs?: NeteaseRawArtistSong[]
+  }
 }
 
 /**
@@ -78,6 +120,215 @@ function getTencentCover(picId: string): string {
   return `https://y.gtimg.cn/music/photo_new/T002R300x300M000${picId}.jpg?max_age=2592000`
 }
 
+function isCleanArtistSong(item: MetingTrack, artist: string): boolean {
+  const artists = Array.isArray(item.artist) ? item.artist : []
+  if (!artistNameMatches(artists[0] || '', artist) || artists.length !== 1) return false
+  return !/(live|cover|remix|伴奏|钢琴|piano|mv版|dj|串烧|背景音乐|beat|翻唱|原唱)/i.test(
+    `${item.name} ${item.album || ''}`,
+  )
+}
+
+function isCleanNeteaseArtistSong(item: NeteaseRawArtistSong, artist: string): boolean {
+  const artists = item.ar || []
+  if (!artistNameMatches(artists[0]?.name || '', artist) || artists.length !== 1) return false
+  return !/(live|cover|remix|伴奏|钢琴|piano|mv版|dj|串烧|背景音乐|beat|翻唱|原唱)/i.test(
+    `${item.name} ${item.al?.name || ''}`,
+  )
+}
+
+async function hydratePlayableTracks(
+  m: Meting,
+  platform: MusicPlatform,
+  sourceTracks: MetingTrack[],
+  targetCount: number = 10,
+): Promise<Track[]> {
+  const allTracks: Track[] = []
+  const BATCH_SIZE = 10
+
+  for (let batchStart = 0; batchStart < sourceTracks.length && allTracks.length < targetCount; batchStart += BATCH_SIZE) {
+    const batch = sourceTracks.slice(batchStart, batchStart + BATCH_SIZE)
+    if (batch.length === 0) break
+
+    const urlResults = await Promise.allSettled(
+      batch.map((t) => m.url(t.url_id || t.id, 128)),
+    )
+
+    const coverResults = await Promise.allSettled(
+      batch.map((t) => {
+        if (platform === 'netease') {
+          return getNeteaseCover(m, t.pic_id || t.id)
+        }
+        return Promise.resolve(getTencentCover(t.pic_id))
+      }),
+    )
+
+    for (let i = 0; i < batch.length; i++) {
+      const item = batch[i]
+
+      const urlResult = urlResults[i]
+      let audioUrl = ''
+      if (urlResult?.status === 'fulfilled') {
+        try {
+          const urlData: MetingUrlResult = JSON.parse(urlResult.value)
+          audioUrl = urlData.url || ''
+        } catch {
+          // URL 解析失败
+        }
+      }
+
+      if (!audioUrl) continue
+
+      const coverResult = coverResults[i]
+      let cover = ''
+      if (coverResult?.status === 'fulfilled') {
+        cover = coverResult.value
+      }
+
+      allTracks.push({
+        id: `${platform}:${item.id}`,
+        title: item.name,
+        artist: Array.isArray(item.artist) ? item.artist.join(' / ') : String(item.artist || ''),
+        album: item.album || '',
+        cover: ensureHttps(cover),
+        duration: 0,
+        audioUrl: ensureHttps(audioUrl),
+      } as Track)
+    }
+  }
+
+  return allTracks.slice(0, targetCount)
+}
+
+async function hydrateRawNeteaseTracks(
+  m: Meting,
+  songs: NeteaseRawArtistSong[],
+  limit: number,
+): Promise<Track[]> {
+  const candidates = songs.slice(0, Math.max(limit * 2, 20))
+  if (candidates.length === 0) return []
+
+  const urlResults = await Promise.allSettled(
+    candidates.map((item) => m.url(String(item.id), 128)),
+  )
+
+  const tracks: Track[] = []
+
+  for (let index = 0; index < candidates.length; index++) {
+    const item = candidates[index]
+    const urlResult = urlResults[index]
+    let audioUrl = ''
+
+    if (urlResult?.status === 'fulfilled') {
+      try {
+        const urlData: MetingUrlResult = JSON.parse(urlResult.value)
+        audioUrl = urlData.url || ''
+      } catch {
+        // URL 解析失败
+      }
+    }
+
+    if (!audioUrl) continue
+
+    tracks.push({
+      id: `netease:${item.id}`,
+      title: item.name,
+      artist: item.ar?.map((artist) => artist.name).join(' / ') || '',
+      album: item.al?.name || '',
+      cover: ensureHttps(item.al?.picUrl || ''),
+      duration: item.dt ? Math.round(item.dt / 1000) : 0,
+      audioUrl: ensureHttps(audioUrl),
+    } as Track)
+
+    if (tracks.length >= limit) break
+  }
+
+  return tracks
+}
+
+function uniqueTracks(tracks: Track[]): Track[] {
+  const seen = new Set<string>()
+  return tracks.filter((track) => {
+    if (seen.has(track.id)) return false
+    seen.add(track.id)
+    return true
+  })
+}
+
+async function findNeteaseArtist(m: Meting, artist: string): Promise<NeteaseArtistMatch | null> {
+  try {
+    const requestedArtist = normalizeArtistAlias(artist)
+    m.format(false)
+    const raw = await m.search(requestedArtist, { type: 100, limit: 5 } as { limit: number; type: number })
+    const data: NeteaseArtistSearchResult = JSON.parse(raw)
+    const candidates = data.result?.artists || []
+    const exact = candidates.find((item) => artistNameMatches(item.name, requestedArtist))
+    const alias = candidates.find((item) => [...(item.alias || []), ...(item.alia || [])].some((name) => artistNameMatches(name, requestedArtist)))
+    const matched = exact || alias
+    return matched ? { id: String(matched.id), name: matched.name } : null
+  } catch {
+    return null
+  } finally {
+    m.format(true)
+  }
+}
+
+/**
+ * 按歌手获取热门歌曲。网易云普通关键词搜索会把合作曲、Live、翻唱排得很靠前，
+ * 歌手接口能拿到更稳定的 artist hotSongs，再优先挑主歌手的干净结果。
+ */
+export async function searchArtistTopTracks(
+  artist: string,
+  platform: MusicPlatform = 'netease',
+  limit: number = 20,
+  neteaseCookie?: string,
+): Promise<Track[]> {
+  const m = createMeting(platform, neteaseCookie)
+  const requestedArtist = normalizeArtistAlias(artist)
+
+  try {
+    if (platform !== 'netease') {
+      return searchMusic(requestedArtist, platform, limit, neteaseCookie)
+    }
+
+    const artistMatch = await findNeteaseArtist(m, requestedArtist)
+    if (!artistMatch) return []
+
+    m.format(false)
+    const raw = await (m as MetingArtistCapable).artist(artistMatch.id, Math.max(limit * 4, 80))
+    const data: NeteaseArtistSongsResult = JSON.parse(raw)
+    const rawArtistTracks = data.hotSongs || []
+    const cleanRawTracks = rawArtistTracks.filter((item) => isCleanNeteaseArtistSong(item, requestedArtist))
+    const rawPlayableTracks: Track[] = []
+
+    if (cleanRawTracks.length > 0) {
+      rawPlayableTracks.push(...await hydrateRawNeteaseTracks(m, cleanRawTracks, limit))
+
+      if (rawPlayableTracks.length > 0) {
+        return rawPlayableTracks.slice(0, limit)
+      }
+    }
+
+    m.format(true)
+    const formattedRaw = await (m as MetingArtistCapable).artist(artistMatch.id, Math.max(limit * 4, 80))
+    const parsed: unknown = JSON.parse(formattedRaw)
+    const artistTracks: MetingTrack[] = Array.isArray(parsed) ? parsed : []
+    if (artistTracks.length === 0) return rawPlayableTracks.slice(0, limit)
+
+    const cleanTracks = artistTracks.filter((item) => isCleanArtistSong(item, requestedArtist))
+    const fallbackTracks = artistTracks.filter((item) => {
+      const artists = Array.isArray(item.artist) ? item.artist : []
+      return artists.some((name) => artistNameMatches(name, requestedArtist)) && !cleanTracks.some((clean) => clean.id === item.id)
+    })
+    const candidates = [...cleanTracks, ...fallbackTracks]
+
+    const hydratedTracks = await hydratePlayableTracks(m, platform, candidates, Math.min(limit, 10))
+    return uniqueTracks([...rawPlayableTracks, ...hydratedTracks]).slice(0, limit)
+  } catch (error) {
+    console.error(`[${platform}] searchArtistTopTracks error:`, error)
+    return []
+  }
+}
+
 /**
  * 搜索歌曲并获取播放链接
  */
@@ -88,78 +339,56 @@ export async function searchMusic(
   neteaseCookie?: string,
 ): Promise<Track[]> {
   const m = createMeting(platform, neteaseCookie)
+  const effectiveLimit = Math.max(limit, 1)
+  const searchLimit = Math.max(effectiveLimit * 2, 20)
 
   try {
-    // 第一步：搜索
-    const searchRaw = await m.search(query, { limit })
+    if (platform === 'netease') {
+      m.format(false)
+
+      const rawSearch = await m.search(query, { limit: searchLimit } as { limit: number })
+      let rawParsed: unknown
+      try {
+        rawParsed = JSON.parse(rawSearch)
+      } catch (e) {
+        console.error(`[${platform}] Failed to parse raw search results for "${query}":`, e)
+        throw new Error(`SEARCH_PARSE: ${platform} search response for "${query}" is not valid JSON`)
+      }
+
+      const rawSongs = (rawParsed as NeteaseSongSearchResult).result?.songs || []
+      if (rawSongs.length > 0) {
+        const rawTracks = await hydrateRawNeteaseTracks(m, rawSongs, effectiveLimit)
+        if (rawTracks.length > 0) return rawTracks
+      }
+    }
+
+    m.format(true)
+
+    const searchRaw = await m.search(query, { limit: searchLimit })
     let parsed: unknown
     try {
       parsed = JSON.parse(searchRaw)
     } catch (e) {
       console.error(`[${platform}] Failed to parse search results for "${query}":`, e)
-      return []
+      throw new Error(`SEARCH_PARSE: ${platform} search response for "${query}" is not valid JSON`)
     }
 
-    // 确保搜索结果是一个数组
     const searchResults: MetingTrack[] = Array.isArray(parsed) ? parsed : []
 
     if (searchResults.length === 0) {
       return []
     }
 
-    // 第二步：并行获取最多前 10 首的播放链接和封面
-    const topResults = searchResults.slice(0, 10)
-    const urlResults = await Promise.allSettled(
-      topResults.map((t) => m.url(t.url_id || t.id, 128)),
-    )
-
-    // 并行获取封面
-    const coverResults = await Promise.allSettled(
-      topResults.map((t) => {
-        if (platform === 'netease') {
-          return getNeteaseCover(m, t.pic_id || t.id)
-        }
-        return Promise.resolve(getTencentCover(t.pic_id))
-      }),
-    )
-
-    // 只返回有可播放链接的歌曲
-    const tracks = topResults
-      .map((item, i) => {
-        let audioUrl = ''
-        if (urlResults[i].status === 'fulfilled') {
-          try {
-            const urlData: MetingUrlResult = JSON.parse(urlResults[i].value)
-            audioUrl = urlData.url || ''
-          } catch {
-            // URL 解析失败
-          }
-        }
-
-        // 没有可播放链接则排除
-        if (!audioUrl) return null
-
-        let cover = ''
-        if (coverResults[i].status === 'fulfilled') {
-          cover = coverResults[i].value
-        }
-
-        return {
-          id: `${platform}:${item.id}`,
-          title: item.name,
-          artist: Array.isArray(item.artist) ? item.artist.join(' / ') : String(item.artist || ''),
-          album: item.album || '',
-          cover: ensureHttps(cover),
-          duration: 0,
-          audioUrl: ensureHttps(audioUrl),
-        } as Track
-      })
-      .filter((t): t is Track => t !== null)
-
-    return tracks
+    return hydratePlayableTracks(m, platform, searchResults, effectiveLimit)
   } catch (error) {
     console.error(`[${platform}] searchMusic error:`, error)
-    return []
+    if (error instanceof Error && error.message.startsWith('SEARCH_')) {
+      throw error
+    }
+    const message = error instanceof Error ? error.message : 'unknown error'
+    throw new Error(`SEARCH_NETWORK: ${platform} search failed for "${query}": ${message}`)
+  } finally {
+    m.format(true)
   }
 }
 
