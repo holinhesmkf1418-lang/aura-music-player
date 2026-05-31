@@ -1,8 +1,10 @@
 'use client'
 
 import { usePlayerStore } from '@/store/player-store'
-import { EQ_PRESETS } from '@/lib/types'
+import { EQ_PRESETS, type EqualizerSettings } from '@/lib/types'
 import { FiX } from 'react-icons/fi'
+
+type EqualizerBand = keyof Pick<EqualizerSettings, 'bass' | 'mid' | 'treble'>
 
 export function Equalizer() {
   const { equalizer, setEqualizer, toggleEqualizer } = usePlayerStore()
@@ -15,12 +17,12 @@ export function Equalizer() {
   }
 
   return (
-    <div className="fixed bottom-24 right-4 w-72 bg-[#1a1a2e] border border-[#2d2d4a] rounded-xl p-4 shadow-2xl z-50 animate-slide-up">
+    <div className="aura-glass-card fixed bottom-24 right-4 z-50 w-72 p-4 shadow-2xl animate-slide-up">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium text-white">均衡器</h3>
         <button
           onClick={toggleEqualizer}
-          className="p-1 rounded-full text-[#a0a0b8] hover:text-white transition-colors"
+          className="p-1 rounded-full text-[var(--text-secondary)] hover:text-white transition-colors"
         >
           <FiX className="w-4 h-4" />
         </button>
@@ -34,8 +36,8 @@ export function Equalizer() {
             onClick={() => handlePresetChange(preset)}
             className={`px-2.5 py-1 rounded-full text-xs transition-all ${
               equalizer.preset === preset
-                ? 'bg-[#8b5cf6] text-white'
-                : 'bg-[#252540] text-[#a0a0b8] hover:bg-[#2d2d4a] hover:text-white'
+                ? 'bg-[var(--neon-cyan)] text-[var(--bg-deep)]'
+                : 'aura-glass-control text-[var(--text-secondary)] hover:text-white'
             }`}
           >
             {preset === 'normal' ? '标准' :
@@ -52,20 +54,20 @@ export function Equalizer() {
 
       {/* Sliders */}
       <div className="space-y-3">
-        {[
+        {([
           { key: 'bass', label: '低音', icon: '🔊' },
           { key: 'mid', label: '中音', icon: '🎵' },
           { key: 'treble', label: '高音', icon: '🔔' },
-        ].map(({ key, label, icon }) => {
-          const value = (equalizer as any)[key] as number
+        ] as Array<{ key: EqualizerBand; label: string; icon: string }>).map(({ key, label, icon }) => {
+          const value = equalizer[key]
           const min = -6
           const max = 6
           const percentage = ((value - min) / (max - min)) * 100
 
           return (
             <div key={key} className="flex items-center gap-3">
-              <span className="text-xs w-8 text-[#a0a0b8]">{icon}</span>
-              <span className="text-xs w-8 text-[#a0a0b8]">{label}</span>
+              <span className="text-xs w-8 text-[var(--text-secondary)]">{icon}</span>
+              <span className="text-xs w-8 text-[var(--text-secondary)]">{label}</span>
               <input
                 type="range"
                 min={min}
@@ -74,10 +76,10 @@ export function Equalizer() {
                 onChange={(e) => setEqualizer({ [key]: parseInt(e.target.value) })}
                 className="flex-1"
                 style={{
-                  background: `linear-gradient(to right, #8b5cf6 ${percentage}%, #2d2d4a ${percentage}%)`,
+                  background: `linear-gradient(to right, var(--neon-cyan) ${percentage}%, var(--border-default) ${percentage}%)`,
                 }}
               />
-              <span className="text-xs text-[#6b6b85] w-6 text-right tabular-nums">
+              <span className="text-xs text-[var(--text-tertiary)] w-6 text-right tabular-nums">
                 {value > 0 ? `+${value}` : value}
               </span>
             </div>
