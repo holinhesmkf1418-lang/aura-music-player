@@ -112,7 +112,6 @@ class AudioEngine {
       return
     }
 
-    // 网易云 CDN 音频通过服务端代理转发，绕过浏览器 CDN 限制
     const finalUrl = audioUrl.includes('music.126.net')
       ? `/api/music/stream/proxy?url=${encodeURIComponent(audioUrl)}`
       : audioUrl
@@ -125,7 +124,6 @@ class AudioEngine {
     audio.volume = this._volume
     audio.preload = 'auto'
 
-    // 以实际音频时长为准（覆盖 metadata 里的假时长）
     audio.addEventListener('loadedmetadata', () => {
       if (audio.duration && isFinite(audio.duration) && audio.duration > 0) {
         this._duration = audio.duration
@@ -133,7 +131,6 @@ class AudioEngine {
       }
     })
 
-    // 播放结束后的回调
     audio.addEventListener('ended', () => {
       this._isPlaying = false
       this.stopTimer()
@@ -141,7 +138,6 @@ class AudioEngine {
       this.notify()
     })
 
-    // 加载出错时回退到 mock 振荡器
     audio.addEventListener('error', () => {
       console.warn('Audio source failed to load:', audioUrl)
       this._isPlaying = false
@@ -166,9 +162,6 @@ class AudioEngine {
     this.notify()
   }
 
-  /**
-   * 当真实音频不可用时的回退方案：用振荡器生成模拟音乐
-   */
   private fallbackOsc: OscillatorNode | null = null
   private fallbackCtx: AudioContext | null = null
   private fallbackTimer: ReturnType<typeof setInterval> | null = null
@@ -182,7 +175,6 @@ class AudioEngine {
       gain.gain.value = this._volume * 0.1
       gain.connect(ctx.destination)
 
-      // 生成简单旋律
       let seed = 0
       for (let i = 0; i < this._audioUrl.length; i++) {
         seed = ((seed << 5) - seed) + this._audioUrl.charCodeAt(i)
@@ -211,7 +203,6 @@ class AudioEngine {
       this._isPlaying = true
       this.startTimer()
 
-      // 覆盖 timer 以使用 ctx 的时间
       this.stopTimer()
       this.timerId = setInterval(() => {
         if (ctx && this._isPlaying) {
@@ -283,7 +274,6 @@ class AudioEngine {
       this.fallbackStartTime = this.fallbackCtx.currentTime - this.fallbackPausedAt
       this._isPlaying = true
       this.startTimer()
-      // restart oscillator
       this.fallbackToOscillator()
       this.notify()
     }

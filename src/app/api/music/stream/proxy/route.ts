@@ -1,9 +1,5 @@
 import { NextResponse } from 'next/server'
 
-/**
- * 音频代理路由
- * 从网易云 CDN 获取音频并通过本服务转发，绕过浏览器 CDN 限制
- */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const audioUrl = searchParams.get('url')

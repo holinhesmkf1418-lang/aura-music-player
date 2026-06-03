@@ -108,7 +108,6 @@ export function AgentChatPanel() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  /** 控制类意图：前端只执行 action，不展示 tracks */
   const CONTROL_INTENTS = new Set([
     'pause', 'resume', 'next_track', 'previous_track',
     'play_track', 'add_to_queue',
@@ -209,7 +208,6 @@ export function AgentChatPanel() {
         }
       })
 
-      // 更新 Agent 上下文
       setAgentContext(data.context)
 
       // 执行动作
@@ -221,7 +219,6 @@ export function AgentChatPanel() {
       }
       executeActions(data.actions, finalResults)
 
-      // 渲染消息（控制类不展示 tracks，推荐类才展示）
       const isControl = CONTROL_INTENTS.has(data.intent)
       const searchErrors = data.debug?.searchErrors || []
       const warningText = searchErrors.length > 0

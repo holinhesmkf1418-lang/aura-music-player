@@ -158,7 +158,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     onClick={() => removeArtist(artist)}
                     className="text-[#a0a0b8] hover:text-[#ef4444] transition-colors"
                   >
-                    ×
+                    x
                   </button>
                 </span>
               ))}

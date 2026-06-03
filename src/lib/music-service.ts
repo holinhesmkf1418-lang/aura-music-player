@@ -36,7 +36,6 @@ function filterPlayable(tracks: Track[]): Track[] {
   return tracks.filter((t) => t.audioUrl)
 }
 
-// 获取 YouTube/DeepSeek API Key
 function getApiKey(userApiKey?: string): string {
   return userApiKey || process.env.YOUTUBE_API_KEY || ''
 }
@@ -63,7 +62,6 @@ export async function searchTracks(options: SearchOptions): Promise<{ tracks: Tr
   let explanation: string | undefined
   const errors: string[] = []
 
-  // 使用 DeepSeek 增强搜索：理解自然语言
   if (options.useDeepSeek !== false && getDeepSeekKey(deepseekKey)) {
     const enhanced = await enhanceSearchQuery(query, deepseekKey)
     if (enhanced.enhancedQuery && enhanced.enhancedQuery !== query) {
@@ -89,7 +87,7 @@ export async function searchTracks(options: SearchOptions): Promise<{ tracks: Tr
     errors.push(error instanceof Error ? error.message : 'SEARCH_NETWORK: Chinese music API failed')
   }
 
-  // 2. 回退到 YouTube API（YouTube URL 在浏览器 audio 元素中不可直接播放，但也列出）
+  // 2. 回退到 YouTube API
   if (key) {
     try {
       const searchUrl = `${YOUTUBE_API_BASE}/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=${maxResults}&videoCategoryId=10&key=${key}`
@@ -127,7 +125,6 @@ export async function searchTracks(options: SearchOptions): Promise<{ tracks: Tr
 }
 
 export async function getTrackLyrics(trackId: string, title: string, artist: string): Promise<string | null> {
-  // 如果 trackId 包含平台前缀（如 netease:12345），使用中文音乐 API 获取歌词
   const platformMatch = trackId.match(/^(netease|tencent|kugou|baidu|kuwo):(.+)$/)
   if (platformMatch) {
     const [, platform, id] = platformMatch
@@ -139,7 +136,6 @@ export async function getTrackLyrics(trackId: string, title: string, artist: str
     }
   }
 
-  // 回退到 lyrics.ovh
   try {
     const response = await fetch(
       `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`
@@ -162,7 +158,6 @@ export async function getRecommendations(
 ): Promise<Track[]> {
   const key = getApiKey(apiKey)
 
-  // 1. 优先使用 DeepSeek + 中文音乐 API 生成智能推荐
   const searchQueries: string[] = []
 
   if (getDeepSeekKey(deepseekKey) && (genres.length > 0 || artists.length > 0 || recentTracks.length > 0)) {
@@ -174,7 +169,6 @@ export async function getRecommendations(
     }
   }
 
-  // 构建常规搜索词
   searchQueries.push(
     ...genres.map(g => `${g} 音乐精选`),
     ...artists.map(a => `${a} 热门歌曲`),
@@ -185,7 +179,6 @@ export async function getRecommendations(
     searchQueries.push('热门歌曲', '流行音乐')
   }
 
-  // 尝试中文音乐 API
   const randomQuery = searchQueries[Math.floor(Math.random() * searchQueries.length)]
   try {
     const result = await searchTracks({ query: randomQuery, maxResults: 20, apiKey: key, useDeepSeek: false, deepseekKey, neteaseCookie })
@@ -194,14 +187,12 @@ export async function getRecommendations(
     // 回退到下一层
   }
 
-  // 2. 回退到 YouTube
   if (key) {
     const ytQuery = searchQueries[Math.floor(Math.random() * searchQueries.length)]
     const result = await searchTracks({ query: ytQuery, maxResults: 20, apiKey: key, useDeepSeek: false })
     if (result.tracks.length > 0) return result.tracks
   }
 
-  // 3. 最终回退到 Mock 数据
   return getMockTracks('recommended music')
 }
 
@@ -238,7 +229,6 @@ export function formatDuration(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
-// 当没有 API Key 时使用的 mock 数据
 function getMockTracks(query: string): Track[] {
   const mockTracks: Track[] = [
     { id: 'mock-1', title: '晴天', artist: '周杰伦', cover: 'https://picsum.photos/seed/sunny/300/300', duration: 276 },
@@ -272,7 +262,6 @@ function getMockTracks(query: string): Track[] {
     t.artist.toLowerCase().includes(query.toLowerCase())
   )
 
-  // 如果 DeepSeek 增强后的关键词在 mock 数据中匹配不到，返回随机推荐
   if (filtered.length === 0) {
     return shuffleArray(mockTracks).slice(0, 10)
   }

@@ -131,7 +131,6 @@ export async function enhanceSearchQuery(
   )
 
   if (!result) {
-    // DeepSeek 不可用，直接返回原查询
     return { enhancedQuery: naturalLanguage, explanation: '' }
   }
 
@@ -202,13 +201,6 @@ export async function generateRecommendationQueries(
   }
 }
 
-/**
- * 歌词翻译：将外文歌词翻译成中文
- */
-/**
- * 通用 DeepSeek 对话函数：接收消息数组，返回 AI 回复文本
- * 用于聊天 Agent 场景
- */
 export async function chatWithDeepSeek(
   messages: { role: string; content: string }[],
   userApiKey?: string,
