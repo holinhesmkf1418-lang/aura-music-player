@@ -2,10 +2,17 @@
 
 import { useState, useEffect } from 'react'
 
-interface Metric {
+interface TokenStats {
+  totalTokens: number
+  totalCalls: number
+  dailyTotals: { date: string; tokens: number; calls: number }[]
+  byLabel: { label: string; calls: number; totalTokens: number }[]
+}
+
+interface MetricCardData {
   label: string
   value: string
-  seed: number
+  sparklineData?: number[]
   fill?: boolean
 }
 
@@ -16,38 +23,70 @@ const NEURAL_NODES = Array.from({ length: 32 }, (_, i) => ({
   active: i % 4 !== 1,
 }))
 
+const MODEL_NAME = 'deepseek-v4-pro'
+
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return String(n)
+}
+
 export function SystemMonitor() {
-  const [metrics, setMetrics] = useState({
-    cpu: 12,
-    ram: 24,
-    net: 8.2,
-    disc: 65,
-  })
+  const [stats, setStats] = useState<TokenStats | null>(null)
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setMetrics({
-        cpu: Math.floor(Math.random() * 30 + 5),
-        ram: Math.floor(Math.random() * 40 + 15),
-        net: +(Math.random() * 15 + 2).toFixed(1),
-        disc: Math.floor(Math.random() * 20 + 55),
-      })
-    }, 3000)
-    return () => clearInterval(id)
+    let cancelled = false
+
+    async function fetchStats() {
+      try {
+        const res = await fetch('/api/admin/token-usage?days=7')
+        if (!res.ok || cancelled) return
+        const data = await res.json()
+        if (!cancelled) setStats(data)
+      } catch {
+        // 静默失败，保持上次数据
+      }
+    }
+
+    fetchStats()
+    const id = setInterval(fetchStats, 30_000)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
   }, [])
+
+  // 今日数据
+  const today = stats?.dailyTotals.at(-1)
+  const todayTokens = today?.tokens ?? 0
+  const todayCalls = today?.calls ?? 0
+
+  // 7天总量
+  const weekTokens = stats?.dailyTotals.reduce((sum, d) => sum + d.tokens, 0) ?? 0
+  const weekCalls = stats?.dailyTotals.reduce((sum, d) => sum + d.calls, 0) ?? 0
+
+  // Sparkline 数据
+  const sparklineTokens = stats?.dailyTotals.map((d) => d.tokens) ?? []
+  const sparklineCalls = stats?.dailyTotals.map((d) => d.calls) ?? []
+
+  const metrics: MetricCardData[] = [
+    { label: 'TOKEN', value: formatNumber(todayTokens), sparklineData: sparklineTokens },
+    { label: 'CALLS', value: formatNumber(todayCalls), sparklineData: sparklineCalls },
+    { label: 'MODEL', value: MODEL_NAME },
+    { label: '7D.USE', value: `${formatNumber(weekTokens)} / ${weekCalls}次`, fill: true },
+  ]
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
       <div className="hud-titlebar h-[42px] min-h-[42px] shrink-0 px-3">
-        <span className="text-[9px] tracking-[0.18em] text-[var(--text-tertiary)]">&gt; SYSTEM_MONITOR</span>
+        <span className="text-[9px] tracking-[0.18em] text-[var(--text-tertiary)]">&gt; TOKEN_MONITOR</span>
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden px-2.5 py-2">
         <div className="space-y-2">
-          <MetricCard label="CPU" value={`${metrics.cpu}%`} seed={1} />
-          <MetricCard label="RAM" value={`${metrics.ram}%`} seed={2} />
-          <MetricCard label="NET" value={`${metrics.net} MB/s`} seed={3} />
-          <MetricCard label="DISC" value={`${metrics.disc}%`} seed={4} fill />
+          {metrics.map((m) => (
+            <MetricCard key={m.label} metric={m} />
+          ))}
         </div>
 
         <div className="mt-3 border-t border-[rgba(148,245,255,0.08)] pt-2.5">
@@ -87,32 +126,41 @@ export function SystemMonitor() {
       </div>
 
       <div className="writing-mode-vertical absolute right-[-1px] top-14 text-[8px] tracking-[0.22em] text-[rgba(0,245,255,0.42)]">
-        MONITORING_METRICS
+        TOKEN_USAGE_MONITOR
       </div>
     </div>
   )
 }
 
-function MetricCard({ label, value, seed, fill }: Metric) {
+function MetricCard({ metric }: { metric: MetricCardData }) {
   return (
     <div className="aura-glass-card p-2">
-      <div className="text-[10px] font-semibold tracking-[0.18em] text-[rgba(0,245,255,0.76)]">{label}</div>
+      <div className="text-[10px] font-semibold tracking-[0.18em] text-[rgba(0,245,255,0.76)]">{metric.label}</div>
       <div className="my-1 grid place-items-center rounded-full border border-[rgba(148,245,255,0.14)] bg-[rgba(0,245,255,0.035)] px-1 py-1 text-[14px] tabular-nums text-[var(--text-secondary)]">
         <span className="whitespace-nowrap leading-none">
-        {value}
+        {metric.value}
         </span>
       </div>
-      <Sparkline seed={seed} fill={fill} />
+      <Sparkline data={metric.sparklineData} fill={metric.fill} />
     </div>
   )
 }
 
-function Sparkline({ seed, fill }: { seed: number; fill?: boolean }) {
-  const points = Array.from({ length: 24 }, (_, i) => {
-    const x = (i / 23) * 100
-    const y = 72 - ((Math.sin(i * 0.86 + seed) + 1) * 19 + ((i * seed * 11) % 22))
-    return `${x.toFixed(1)},${Math.max(14, Math.min(82, y)).toFixed(1)}`
-  })
+function Sparkline({ data, fill }: { data?: number[]; fill?: boolean }) {
+  const points = data?.length
+    ? data.map((v, i) => {
+        const max = Math.max(...data, 1)
+        const x = (i / Math.max(data.length - 1, 1)) * 100
+        const y = 100 - ((v / max) * 70 + 14)
+        return `${x.toFixed(1)},${Math.max(10, Math.min(90, y)).toFixed(1)}`
+      })
+    : Array.from({ length: 24 }, (_, i) => {
+        // 未加载时显示占位波形
+        const x = (i / 23) * 100
+        const y = 100 - (Math.sin(i * 1.2) * 18 + 50)
+        return `${x.toFixed(1)},${y.toFixed(1)}`
+      })
+
   const path = `M ${points.join(' L ')}`
   const fillPath = `${path} L 100,100 L 0,100 Z`
 

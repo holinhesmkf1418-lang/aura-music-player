@@ -88,3 +88,13 @@ model ApiKey {
   apiKey  String
   createdAt DateTime @default(now())
 }
+
+model TokenUsage {
+  id               String   @id @default(uuid())
+  timestamp        DateTime @default(now())
+  label            String   @default("unknown")
+  model            String?
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+}

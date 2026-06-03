@@ -438,7 +438,7 @@ async function deepseekParse(
   const result = await chatWithDeepSeek([
     { role: 'system', content: systemPrompt },
     { role: 'user', content: message },
-  ])
+  ], undefined, { callLabel: 'intent-parse' })
 
   if (!result) {
     return { intent: 'unknown', confidence: 0, requestType: 'vibe', needsDeepRank: false }

@@ -1,3 +1,5 @@
+import { recordTokenUsage } from './token-usage'
+
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
 const DEFAULT_DEEPSEEK_MODEL = 'deepseek-v4-pro'
 const REQUEST_TIMEOUT_MS = 15000
@@ -10,6 +12,7 @@ export interface DeepSeekCallOptions {
   maxTokens?: number
   reasoningEffort?: DeepSeekReasoningEffort
   thinking?: 'enabled' | 'disabled'
+  callLabel?: string
 }
 
 function getApiKey(userApiKey?: string): string {
@@ -81,7 +84,20 @@ async function callDeepSeek(
       }
 
       const data = await res.json()
-      return data.choices?.[0]?.message?.content || ''
+      const content: string = data.choices?.[0]?.message?.content || ''
+
+      // 记录 token 用量（fire-and-forget，不阻塞返回）
+      if (data.usage) {
+        recordTokenUsage({
+          label: options.callLabel || 'unknown',
+          model: getModel(),
+          promptTokens: data.usage.prompt_tokens ?? 0,
+          completionTokens: data.usage.completion_tokens ?? 0,
+          totalTokens: data.usage.total_tokens ?? 0,
+        }).catch(() => {})
+      }
+
+      return content
     } catch (error) {
       clearTimeout(timeoutId)
 
@@ -127,7 +143,7 @@ export async function enhanceSearchQuery(
       },
     ],
     userApiKey,
-    { reasoningEffort: 'high', maxTokens: 700 },
+    { reasoningEffort: 'high', maxTokens: 700, callLabel: 'search-enhance' },
   )
 
   if (!result) {
@@ -185,7 +201,7 @@ export async function generateRecommendationQueries(
       },
     ],
     userApiKey,
-    { reasoningEffort: 'high', maxTokens: 900 },
+    { reasoningEffort: 'high', maxTokens: 900, callLabel: 'recommendation' },
   )
 
   if (!result) return []
@@ -232,7 +248,7 @@ export async function translateLyrics(
       },
     ],
     userApiKey,
-    { reasoningEffort: 'high', maxTokens: 2048 },
+    { reasoningEffort: 'high', maxTokens: 2048, callLabel: 'lyrics-translate' },
   )
 
   return result || lyrics

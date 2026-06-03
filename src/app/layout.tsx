@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 import { PlayerProvider } from "@/components/PlayerProvider";
+import { Analytics } from "@vercel/analytics/react";
 
 export const metadata: Metadata = {
   title: "AURA MUSIC - Neural Sync System",
@@ -24,6 +25,7 @@ export default function RootLayout({
             {children}
           </AppShell>
         </PlayerProvider>
+        <Analytics />
       </body>
     </html>
   );

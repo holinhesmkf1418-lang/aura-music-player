@@ -33,7 +33,7 @@ ${candidateLines}
   const result = await chatWithDeepSeek([
     { role: 'system', content: '你是音乐排序助手，只输出 JSON 数组。' },
     { role: 'user', content: systemPrompt },
-  ])
+  ], undefined, { callLabel: 'track-rank' })
 
   if (!result) {
     onFallback?.('deepseek_no_response')
